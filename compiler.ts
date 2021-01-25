@@ -46,9 +46,6 @@ function codeGen(stmt: Stmt) : Array<string> {
 
 function codeGenExpr(expr : Expr) : Array<string> {
   switch(expr.tag) {
-    case "builtin1":
-      const argStmts = codeGenExpr(expr.arg);
-      return argStmts.concat([`(call $${expr.name})`]);
     case "literal":
       return ["(i32.const " + expr.value + ")"];
     case "id":
@@ -60,9 +57,5 @@ function codeGenExpr(expr : Expr) : Array<string> {
       //const stmts2 = codeGenExpr(expr.expr2)
       stmts = stmts.concat(codeGenExpr(expr.expr2))
       return stmts.concat(["(i32." + expr.op.tag + ")"])
-    case "builtin2":
-      var arg = codeGenExpr(expr.arg1);
-      arg = arg.concat(codeGenExpr(expr.arg2));
-      return arg.concat([`(call $${expr.name})`]);
   }
 }

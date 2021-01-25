@@ -1,23 +1,44 @@
 import { parser } from "lezer-python";
 import { Tree, TreeCursor } from "lezer-tree";
 import { getJSDocReturnType } from "typescript";
-import { Expr, Op, Stmt, Type, Decl, Parameter } from "./ast";
+import { Expr, Op, Stmt, Type, Decl, Parameter, UniOp } from "./ast";
 
-export function traverseOp(c: TreeCursor, s: string): Op {
+export function traverseBinop(c: TreeCursor, s: string): Op {
   //switch (s.substring(c.from, c.to)) {
   switch (s.substring(c.from, c.to)) {
     case "+":
-      return {
-        tag: "add"
-      }
+      return { tag: "add" }
     case "-":
-      return {
-        tag: "sub"
-      }
+      return { tag: "sub" }
     case "*":
-      return {
-        tag: "mul"
-      }
+      return { tag: "mul" }
+    case "//":
+      return { tag: "div_s" }
+    case "%":
+      return { tag: "rem_s" }
+    case "==":
+      return { tag: "eq" }
+    case "!=":
+      return { tag: "ne" }
+    case "<=":
+      return { tag: "le_s" }
+    case ">=":
+      return { tag: "ge_s" }
+    case "<":
+      return { tag: "lt_s" }
+    case ">":
+      return { tag: "gt_s" }
+    case "is":
+      return { tag: "is" }
+  }
+}
+
+export function traverseUniop(c: TreeCursor, s: string): UniOp {
+  switch (s.substring(c.from, c.to)) {
+    case "not":
+      return { tag: "eqz" }
+    case "-":
+      return { tag: "neg" }
   }
 }
 
@@ -39,11 +60,65 @@ export function traverseExpr(c: TreeCursor, s: string): Expr {
           value: Number(s.substring(c.from, c.to))
         }
       };
+    case "Boolean":
+      const boolStr = s.substring(c.from, c.to) === "True" ? "True" : "False";
+      var boolVal = (boolStr === "True");
+      return {
+        tag: "literal",
+        value: {
+          tag: boolStr,
+          value: boolVal
+        }
+      }
+    case "None":
+      return {
+        tag: "literal",
+        value: {
+          tag: "None"
+        }
+      }
     case "VariableName":
       return {
         tag: "id",
         name: s.substring(c.from, c.to)
       };
+
+    case "UnaryExpression":
+      c.firstChild();
+      const uniop = traverseUniop(c, s);
+      c.nextSibling();
+      const uniExpr = traverseExpr(c, s);
+      c.parent();
+      return {
+        tag: "uniop",
+        uniop: uniop,
+        expr: uniExpr
+      }
+    case "BinaryExpression":
+      c.firstChild(); // go to first expr
+      const exp1 = traverseExpr(c, s);
+      c.nextSibling(); // go to operation
+      const op = traverseBinop(c, s);
+      c.nextSibling(); // go to snd expr
+      const exp2 = traverseExpr(c, s);
+      c.parent(); // pop binary expression
+      var tmp =  s.substring(c.from, c.to);
+      return {
+        tag: "binop",
+        expr1: exp1,
+        op: op,
+        expr2: exp2
+      };
+    case "ParenthesizedExpression":
+      c.firstChild(); // go to (
+      c.nextSibling();
+      const paremExpr = traverseExpr(c, s);
+      c.nextSibling();
+      c.parent(); // pop parenthesized expression
+      return {
+        tag: "param",
+        expr: paremExpr
+      }
     case "CallExpression":
       c.firstChild();
       const callName = s.substring(c.from, c.to);
@@ -52,52 +127,28 @@ export function traverseExpr(c: TreeCursor, s: string): Expr {
       c.nextSibling(); // find single argument in arglist
       const arg = traverseExpr(c, s);
       c.nextSibling()
-      if (s.substring(c.from, c.to) !== ",") {
-        c.parent(); // pop arglist
-        c.parent(); // pop CallExpression
-        return {
-          tag: "builtin1",
-          name: callName,
-          arg: arg
-        }
-      } else {
-        c.nextSibling() // skip the comma
-        const arg2 = traverseExpr(c, s);
-        c.parent();
-        c.parent();
-        return {
-          tag: "builtin2",
-          name: callName,
-          arg1: arg,
-          arg2: arg2
-        };
-      }
-    case "BinaryExpression":
-      c.firstChild(); // go to first expr
-      const exp1 = traverseExpr(c, s)
-      c.nextSibling(); // go to operation
-      const op = traverseOp(c, s)
-      c.nextSibling(); // go to snd expr
-      const exp2 = traverseExpr(c, s)
-      c.parent(); // pop binary expression
-      return {
-        tag: "binop",
-        expr1: exp1,
-        op: op,
-        expr2: exp2
-      };
     /*
-    case "UnaryExpression":
-      c.firstChild();
-      const sign = s.substring(c.from, c.to);
-      c.nextSibling();
-      const exp = Number(s.substring(c.from, c.to));
-      const num = sign === "-" ? -exp : exp;
+    if (s.substring(c.from, c.to) !== ",") {
+      c.parent(); // pop arglist
+      c.parent(); // pop CallExpression
       return {
-        tag: "num",
-        value: num
+        tag: "builtin1",
+        name: callName,
+        arg: arg
       }
-      */
+    } else {
+      c.nextSibling() // skip the comma
+      const arg2 = traverseExpr(c, s);
+      c.parent();
+      c.parent();
+      return {
+        tag: "builtin2",
+        name: callName,
+        arg1: arg,
+        arg2: arg2
+      };
+    }
+    */
     default:
       throw new Error("Could not parse expr at " + c.from + " " + c.to + ": " + s.substring(c.from, c.to));
   }
@@ -126,11 +177,9 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
       var thnStmts: Stmt[] = [];
       var elifStmts: Stmt[] = [];
       var elseStmts: Stmt[] = [];
-
       while (c.nextSibling()) {
         thnStmts.push(traverseStmt(c, s));
       }
-
       c.parent(); // go back top
       // if there is elif or else
       var hasElif = false;
@@ -143,7 +192,6 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
             elifStmts.push(traverseStmt(c, s));
           }
         }
-       
         var tmp = s.substring(c.from, c.to);
         if (hasElif) {
           c.parent()
@@ -167,12 +215,12 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
     case "WhileStatement":
       c.firstChild(); // focus on while
       c.nextSibling(); // focus on while cond
-      const whileExpr = s.substring(c.from, c.to); 
+      const whileExpr = traverseExpr(c, s);
       c.nextSibling(); // focus on body
       c.firstChild(); // focus on :
 
       var whileStmts = [];
-      while(c.nextSibling()){
+      while (c.nextSibling()) {
         whileStmts.push(traverseStmt(c, s));
       }
 
@@ -205,11 +253,11 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
     case "ReturnStatement":
       c.firstChild();  // Focus return keyword
       var returnVal;
-      if(c.nextSibling()){// Focus expression (there may be no stmt)
+      if (c.nextSibling()) {// Focus expression (there may be no stmt)
         returnVal = traverseExpr(c, s);
       }
       c.parent();
-      return { tag: "return", value: returnVal};
+      return { tag: "return", value: returnVal };
     case "ExpressionStatement":
       c.firstChild();
       const expr = traverseExpr(c, s);

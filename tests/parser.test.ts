@@ -7,6 +7,168 @@ import { traverseExpr, traverseStmt, traverse, parse } from '../parser';
 // own describe statement. Each it statement represents a single test. You
 // should write enough unit tests for each function until you are confident
 // the parser works as expected. 
+describe('traverseExpr(c,s) function', () => {
+  it('parse a boolean', () => {
+    const source = "True";
+    const cursor = parser.parse(source).cursor();
+
+    // go to statement
+    cursor.firstChild();
+    // go to expression
+    cursor.firstChild();
+
+    const parsedExpr = traverseExpr(cursor, source);
+
+    // Note: we have to use deep equality when comparing objects
+    expect(parsedExpr).to.deep.equal({ tag: "literal", value: { tag: "True", value: true } });
+
+  })
+
+  it('parse a None', () => {
+    const source = "None";
+    const cursor = parser.parse(source).cursor();
+    // go to statement
+    cursor.firstChild();
+    // go to expression
+    cursor.firstChild();
+    const parsedExpr = traverseExpr(cursor, source);
+    // Note: we have to use deep equality when comparing objects
+    expect(parsedExpr).to.deep.equal({ tag: "literal", value: { tag: "None" } });
+
+  })
+
+  it('parse a parenthesized Expression', () => {
+    const source = "(4-3)"
+    const cursor = parser.parse(source).cursor();
+    // go to statement
+    cursor.firstChild();
+    // go to expression
+    cursor.firstChild();
+    const parsedExpr = traverseExpr(cursor, source);
+
+    expect(parsedExpr).to.deep.equal({
+      expr: {
+        expr1: { tag: "literal", value: { tag: "number", value: 4 } },
+        expr2: { tag: "literal", value: { tag: "number", value: 3 } },
+        op: { tag: "sub", },
+        tag: "binop",
+      },
+      tag: "param"
+    });
+  })
+})
+
+describe('traverseBinop(c, s)', () => {
+  it('binary operation addition', () => {
+    const source = "3 + 5"
+    const cursor = parser.parse(source).cursor();
+    // go to statement
+    cursor.firstChild();
+    // go to expression
+    cursor.firstChild();
+    const parsedExpr = traverseExpr(cursor, source);
+    expect(parsedExpr).to.deep.equal({
+      tag: "binop",
+      expr1: { tag: "literal", value: { tag: "number", value: 3 } },
+      expr2: { tag: "literal", value: { tag: "number", value: 5 } },
+      op: { tag: "add" }
+    })
+  })
+
+  it('binary operation multiplication', () => {
+    const source = "3 * 5"
+    const cursor = parser.parse(source).cursor();
+    // go to statement
+    cursor.firstChild();
+    // go to expression
+    cursor.firstChild();
+    const parsedExpr = traverseExpr(cursor, source);
+    expect(parsedExpr).to.deep.equal({
+      tag: "binop",
+      expr1: { tag: "literal", value: { tag: "number", value: 3 } },
+      expr2: { tag: "literal", value: { tag: "number", value: 5 } },
+      op: { tag: "mul" }
+    })
+  })
+
+  it('binary operation combined', () => {
+    const source = "3 + 4 * 5"
+    const cursor = parser.parse(source).cursor();
+
+    // go to statement
+    cursor.firstChild();
+    // go to expression
+    cursor.firstChild();
+    const parsedExpr = traverseExpr(cursor, source);
+    expect(parsedExpr).to.deep.equal({
+      tag: "binop",
+      expr1: { tag: "literal", value: { tag: "number", value: 3 } },
+      expr2: {
+        tag: "binop",
+        expr1: { tag: "literal", value: { tag: "number", value: 4 } },
+        expr2: { tag: "literal", value: { tag: "number", value: 5 } },
+        op: { tag: "mul" }
+      },
+      op: { tag: "add" }
+    })
+  })
+
+  it('binary operation combined 2', () => {
+    const source = "3 * 4 + 5"
+    const cursor = parser.parse(source).cursor();
+
+    // go to statement
+    cursor.firstChild();
+    // go to expression
+    cursor.firstChild();
+    const parsedExpr = traverseExpr(cursor, source);
+    expect(parsedExpr).to.deep.equal({
+      tag: "binop",
+      expr1: {
+        tag: "binop",
+        expr1: { tag: "literal", value: { tag: "number", value: 3 } },
+        expr2: { tag: "literal", value: { tag: "number", value: 4 } },
+        op: { tag: "mul" }
+      },
+      expr2: { tag: "literal", value: { tag: "number", value: 5 } },
+      op: { tag: "add" }
+    })
+  })
+
+  it('binary operation div', () => {
+    it('binary operation addition', () => {
+      const source = "6 // 4"
+      const cursor = parser.parse(source).cursor();
+      // go to statement
+      cursor.firstChild();
+      // go to expression
+      cursor.firstChild();
+      const parsedExpr = traverseExpr(cursor, source);
+      expect(parsedExpr).to.deep.equal({
+        tag: "binop",
+        expr1: { tag: "literal", value: { tag: "number", value: 6 } },
+        expr2: { tag: "literal", value: { tag: "number", value: 4 } },
+        op: { tag: "div_s" }
+      })
+    })
+  })
+
+  it('binary operation less equal', () => {
+    const source = "6 <= 4"
+    const cursor = parser.parse(source).cursor();
+    // go to statement
+    cursor.firstChild();
+    // go to expression
+    cursor.firstChild();
+    const parsedExpr = traverseExpr(cursor, source);
+    expect(parsedExpr).to.deep.equal({
+      tag: "binop",
+      expr1: { tag: "literal", value: { tag: "number", value: 6 } },
+      expr2: { tag: "literal", value: { tag: "number", value: 4 } },
+      op: { tag: "le_s" }
+    })
+  })
+})
 /*
 describe('traverseExpr(c, s) function', () => {
   
@@ -175,7 +337,6 @@ describe('traverseStmt(c, s) function', () => {
       
     });
   })
-  */
 
   it('Parsing while statements', () => {
     const source = "while x=0:\n  x = x+1\n  x= x-1\n"
@@ -189,6 +350,7 @@ describe('traverseStmt(c, s) function', () => {
       
     });
   })
+  */
   /*
   // TODO: add tests here to ensure traverseStmt works as expected
   it('assign statement', () => {

@@ -21,8 +21,6 @@ export type Expr =
   | { tag: "call", name: string, arguments: Array<Expr> }
   | { tag: "param", expr: Expr}
   | { tag: "return", value: Expr}
-  | { tag: "builtin1", name: string, arg: Expr }
-  | { tag: "builtin2", name: string, arg1: Expr, arg2: Expr}
 
 export type Op = 
     {tag: "add"}
@@ -39,8 +37,8 @@ export type Op =
   | {tag: "is"}
 
 export type UniOp =
-    {tag: "not"}
-  | {tag: "-"}
+    {tag: "eqz"} // not
+  | {tag: "neg"}  // -
 
 export type Literal =
     { tag: "None" }
