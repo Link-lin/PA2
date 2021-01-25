@@ -143,11 +143,7 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
             elifStmts.push(traverseStmt(c, s));
           }
         }
-        /*
-        c.parent()
-        c.nextSibling();
-        c.nextSibling();
-        */
+       
         var tmp = s.substring(c.from, c.to);
         if (hasElif) {
           c.parent()
@@ -161,45 +157,31 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
           }
         }
       }
-      /*
-      while (s.substring(c.from, c.to) !== "elif" && s.substring(c.from, c.to) !== "else") {
-        // parse statements push to array
-        thnStmts.push(traverseStmt(c, s));
-        c.nextSibling();
-      }
-      */
-      /*
-      // focus on else/elif
-      if (s.substring(c.from, c.to) === "elif") {
-        c.nextSibling(); // go to body
-        c.firstChild(); // focus on :
-        c.nextSibling(); // focus on the first stmt in else or elif
-        while (s.substring(c.from, c.to) !== "else") {
-          elifStmts.push(traverseStmt(c, s));
-          c.nextSibling();
-        }
-      }
-      */
-      /*
-      if (s.substring(c.from, c.to) === "else") {
-        c.nextSibling(); // go to body
-        c.firstChild(); // focus on :
-     
-        while (c.nextSibling()) {
-          elseStmts.push(traverseStmt(c, s));
-        }
-      }
-      */
-
       return {
         tag: "if",
-        cond: { tag: "id", name: tmp },
+        cond: cond,
         thn: thnStmts,
         els: elseStmts,
         elif: elifStmts
       }
     case "WhileStatement":
-    // TODO
+      c.firstChild(); // focus on while
+      c.nextSibling(); // focus on while cond
+      const whileExpr = s.substring(c.from, c.to); 
+      c.nextSibling(); // focus on body
+      c.firstChild(); // focus on :
+
+      var whileStmts = [];
+      while(c.nextSibling()){
+        whileStmts.push(traverseStmt(c, s));
+      }
+
+      return {
+        tag: "while",
+        expr: whileExpr,
+        stmts: whileStmts
+      }
+
     case "FunctionDefinition":
       c.firstChild();  // Focus on def
       c.nextSibling(); // Focus on name of function
@@ -222,10 +204,12 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
       return { tag: "pass" }
     case "ReturnStatement":
       c.firstChild();  // Focus return keyword
-      c.nextSibling(); // Focus expression
-      var returnVal = traverseExpr(c, s);
+      var returnVal;
+      if(c.nextSibling()){// Focus expression (there may be no stmt)
+        returnVal = traverseExpr(c, s);
+      }
       c.parent();
-      return { tag: "return", value: returnVal };
+      return { tag: "return", value: returnVal};
     case "ExpressionStatement":
       c.firstChild();
       const expr = traverseExpr(c, s);

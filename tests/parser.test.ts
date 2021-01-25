@@ -161,9 +161,24 @@ describe('traverseExpr(c, s) function', () => {
 */
 
 describe('traverseStmt(c, s) function', () => {
+  /*
   it('parseing if statements', () => {
-//    const source = "if true:\n  a=2\nelif:\n  a=3\n  a=4\nelse:\n  a=1"
+    // const source = "if true:\n  a=2\nelif:\n  a=3\n  a=4\nelse:\n  a=1"
     const source = "if true:\n  a=2\nelif:\n  a=3\n  a=4\n"
+    const cursor = parser.parse(source).cursor();
+    // go to statement
+    cursor.firstChild();
+    const parsedExpr = traverseStmt(cursor, source);
+    console.log(parsedExpr)
+
+    expect(parsedExpr).to.deep.equal({
+      
+    });
+  })
+  */
+
+  it('Parsing while statements', () => {
+    const source = "while x=0:\n  x = x+1\n  x= x-1\n"
     const cursor = parser.parse(source).cursor();
     // go to statement
     cursor.firstChild();
@@ -217,45 +232,45 @@ describe('traverseStmt(c, s) function', () => {
 
 });
 
-  /*
+/*
 describe('traverse(c, s) function', () => {
-  // TODO: add tests here to ensure traverse works as expected
-  it('Assign with print', () => {
-    const source = "x = 5\n y = 6 \n print(max(x,y))"
-    const cursor = parser.parse(source).cursor();
+// TODO: add tests here to ensure traverse works as expected
+it('Assign with print', () => {
+  const source = "x = 5\n y = 6 \n print(max(x,y))"
+  const cursor = parser.parse(source).cursor();
 
-    const parsed = traverse(cursor, source);
-    expect(parsed).to.deep.equal([{
-      tag: "define", name: "x", value: { tag: "num", value: 5 }
-    }, {
-      tag: "define", name: "y", value: { tag: "num", value: 6 }
-    }, {
-      tag: "expr",
-      expr: {
-        name: "print",
-        tag: "builtin1",
-        arg: {
-          tag: "builtin2",
-          name: "max",
-          arg1: { name: "x", tag: "id" },
-          arg2: { name: "y", tag: "id" }
-        }
+  const parsed = traverse(cursor, source);
+  expect(parsed).to.deep.equal([{
+    tag: "define", name: "x", value: { tag: "num", value: 5 }
+  }, {
+    tag: "define", name: "y", value: { tag: "num", value: 6 }
+  }, {
+    tag: "expr",
+    expr: {
+      name: "print",
+      tag: "builtin1",
+      arg: {
+        tag: "builtin2",
+        name: "max",
+        arg1: { name: "x", tag: "id" },
+        arg2: { name: "y", tag: "id" }
       }
-    }])
-  })
+    }
+  }])
+})
 });
 
 describe('parse(source) function', () => {
-  it('parse a number', () => {
-    const parsed = parse("987");
-    expect(parsed).to.deep.equal([{ tag: "expr", expr: { tag: "num", value: 987 } }]);
-  });
+it('parse a number', () => {
+  const parsed = parse("987");
+  expect(parsed).to.deep.equal([{ tag: "expr", expr: { tag: "num", value: 987 } }]);
+});
 
-  // TODO: add additional tests here to ensure parse works as expected
-  it('parse a negative number', () => {
-    const parsed = parse("-1");
-    expect(parsed).to.deep.equal([{ tag: "expr", expr: { tag: "num", value: -1 } }]);
-  });
+// TODO: add additional tests here to ensure parse works as expected
+it('parse a negative number', () => {
+  const parsed = parse("-1");
+  expect(parsed).to.deep.equal([{ tag: "expr", expr: { tag: "num", value: -1 } }]);
+});
 
 });
 */
