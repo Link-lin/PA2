@@ -282,6 +282,7 @@ export function traverse(c: TreeCursor, s: string): Array<Stmt> {
       throw new Error("Could not parse program at " + c.node.from + " " + c.node.to);
   }
 }
+
 export function parse(source: string): Array<Stmt> {
   const t = parser.parse(source);
   return traverse(t.cursor(), source);

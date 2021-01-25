@@ -1,6 +1,6 @@
-export type Parameter =
-  { name: string }
+export type typeVar = { tag:"typeVar", name: string, type: Type}
 
+export type Parameter = { name: string } 
 export type Stmt =
     { tag: "assign", name: string, value: Expr }
   | { tag: "define", name: string, parameters: Array<Parameter>, decl: Array<Decl>, body: Array<Stmt>, ret: Type}
@@ -14,7 +14,7 @@ export type Decl =
     {tag: "init", name: string, type: Type, value: Literal}
 
 export type Expr =
-    {tag: "literal", value: Literal}
+    { tag: "literal", value: Literal}
   | { tag: "id", name: string }
   | { tag: "uniop", expr: Expr, uniop: UniOp}
   | { tag: "binop", expr1: Expr, op: Op, expr2: Expr}
