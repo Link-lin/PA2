@@ -72,7 +72,6 @@ export function compile(source: string, env: GlobalEnv): CompileResult {
   definedVars.forEach(v => {
     localDefines.push(`(local $${v} i64)`);
   })
-  // May be able to add declare in here
   const commandGroups = ast.map((stmt) => codeGen(stmt, withDefines));
   const commands = localDefines.concat([].concat.apply([], commandGroups));
   console.log("Generated: ", commands.join("\n"));
@@ -153,14 +152,14 @@ function codeGenExpr(expr: Expr, env: GlobalEnv): Array<string> {
       }
     // Cases for binary operation and bultin2
     case "binop":
-      checkType(expr.expr1, expr.op, "left side", env)
-      checkType(expr.expr2, expr.op, "right side", env)
+      checkTypeOp(expr.expr1, expr.op, "left side", env)
+      checkTypeOp(expr.expr2, expr.op, "right side", env)
       var stmts = codeGenExpr(expr.expr1, env);
       //const stmts2 = codeGenExpr(expr.expr2)
       stmts = stmts.concat(codeGenExpr(expr.expr2, env))
       return stmts.concat(["(i64." + expr.op.tag + ")"])
     case "uniop":
-      checkType(expr.expr, expr.uniop, "", env)
+      checkTypeOp(expr.expr, expr.uniop, "", env)
       var stmts = codeGenExpr(expr.expr, env);
       stmts = stmts.concat(["(i64." + expr.uniop.tag + ")"])
       return stmts.concat(["(i64.extend_i32_s)"])
@@ -171,11 +170,11 @@ function codeGenExpr(expr: Expr, env: GlobalEnv): Array<string> {
   }
 }
 
-function checkType(expr: Expr, op: Op | UniOp, posStr: string, gEnv: GlobalEnv) {
+function checkTypeOp(expr: Expr, op: Op | UniOp, posStr: string, gEnv: GlobalEnv) {
+  const o = op.tag;
   if (expr.tag === "literal") {
-    console.log("CheckType" + expr.tag +op)
+    console.log("CheckType: " + expr.value.tag +" "+op.tag)
     const v = expr.value.tag;
-    const o = op.tag;
     switch (v) {
       case "None":
         throw new Error(`Operation ${o} operated on ${posStr} None`)
@@ -183,18 +182,34 @@ function checkType(expr: Expr, op: Op | UniOp, posStr: string, gEnv: GlobalEnv) 
         if (o === "eqz") {
           throw new Error(`Operation ${o} operated on ${posStr} number`)
         }
+        break;
       case "False":
         if (o !== "eqz") {
           throw new Error(`Operation ${o} operated on ${posStr} Boolean Value False`)
         }
+        break;
       case "True":
         if (o !== "eqz") {
           throw new Error(`Operation ${o} operated on ${posStr} Boolean Value True`)
         }
+        break;
     }
   }
   else if(expr.tag === "id"){
-    //TODO
-    envLookup(gEnv, expr.name)
+    // right now can only check global defined var
+    if(gEnv.types.has(expr.name)){
+      switch (gEnv.types.get(expr.name)) {
+        case "int":
+          if (o === "eqz") {
+            throw new Error(`Operation ${o} operated on ${posStr} number`)
+          }
+          break;
+        case "bool":
+          if (o !== "eqz") {
+            throw new Error(`Operation ${o} operated on ${posStr} Boolean Value`)
+          }
+          break;
+      } 
+    }
   }
 }
