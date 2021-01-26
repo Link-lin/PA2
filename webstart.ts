@@ -14,7 +14,6 @@ function webStart() {
           document.getElementById("output").appendChild(elt);
           elt.innerText = arg;
         },
-
         print_global_func: (pos: number, value: number) => {
           var name = importObject.nameMap[pos];
           var msg = name + " = " + value;

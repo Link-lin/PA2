@@ -3,7 +3,7 @@ import { parse } from "./parser";
 
 // https://learnxinyminutes.com/docs/wasm/
 const TRUE = BigInt(1) << BigInt(32)
-const FALSE= BigInt(2) << BigInt(32)
+const FALSE = BigInt(2) << BigInt(32)
 const NONE = BigInt(4) << BigInt(32)
 
 type LocalEnv = Map<string, boolean>;
@@ -19,7 +19,7 @@ export function augmentEnv(env: GlobalEnv, stmts: Array<Stmt>): GlobalEnv {
   var newOffset = env.offset;
   stmts.forEach((s) => {
     switch (s.tag) {
-      case "assign":
+      case "init":
         newEnv.set(s.name, newOffset);
         newOffset += 1;
         break;
@@ -41,9 +41,23 @@ export function compile(source: string, env: GlobalEnv): CompileResult {
   const ast = parse(source);
   const definedVars = new Set();
   const withDefines = augmentEnv(env, ast);
+  // Check if init or func def came before all other
+  var cameBefore = true
+  var otherAppear = false
+  ast.forEach(s => {
+    if (s.tag !== "init" && s.tag !== "define") {
+      otherAppear = true
+    }
+    if (otherAppear && (s.tag === "init" || s.tag === "define")) {
+      cameBefore = false
+    }
+  })
+  // If not defined before 
+  if (!cameBefore) throw new Error("Program should have var_def and func_def at top")
+
   ast.forEach(s => {
     switch (s.tag) {
-      case "assign":
+      case "init":
         definedVars.add(s.name);
         break;
     }
@@ -54,7 +68,8 @@ export function compile(source: string, env: GlobalEnv): CompileResult {
   definedVars.forEach(v => {
     localDefines.push(`(local $${v} i64)`);
   })
-  const commandGroups = ast.map((stmt) => codeGen(stmt,withDefines));
+  // May be able to add declare in here
+  const commandGroups = ast.map((stmt) => codeGen(stmt, withDefines));
   const commands = localDefines.concat([].concat.apply([], commandGroups));
   console.log("Generated: ", commands.join("\n"));
   return {
@@ -70,6 +85,10 @@ function envLookup(env: GlobalEnv, name: string): number {
 
 function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
   switch (stmt.tag) {
+    case "init":
+      const locationToSt = [`(i32.const ${envLookup(env, stmt.name)}) ;; ${stmt.name}`];
+      var valStmts = codeGenExpr(stmt.value, env);
+      return locationToSt.concat(valStmts).concat([`(i64.store)`]);
     case "assign":
       const locationToStore = [`(i32.const ${envLookup(env, stmt.name)}) ;; ${stmt.name}`];
       var valStmts = codeGenExpr(stmt.value, env);
@@ -83,9 +102,32 @@ function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
       var valStmts = codeGenExpr(stmt.value, env);
       valStmts.push("return")
       return valStmts;
+    case "pass":
+      return []
     case "expr":
       var exprStmts = codeGenExpr(stmt.expr, env);
       return exprStmts.concat([`(local.set $$last)`]);
+    case "define":
+      const funcBody = stmt.body
+      // Check if init or func def came before all other
+      var cameBefore = true
+      var otherAppear = false
+      funcBody.forEach(s => {
+        if(s.tag === "define") {throw new Error("no function declare inside function body")};
+        if (s.tag !== "init") {
+          otherAppear = true
+        }
+        if (otherAppear && s.tag === "init" ) {
+          cameBefore = false
+        }
+      })
+      if(cameBefore) { throw new Error("var_def should preceed all stmts")}
+      // TODO generate func name and such
+
+      // Generate stmts code for func
+      var funcStmtsGroup = funcBody.map(stmt => codeGen(stmt, env))
+      const funcStmts = [].concat([].concat.apply([], funcStmtsGroup));
+      return funcStmts 
   }
 }
 
