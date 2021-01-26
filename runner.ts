@@ -22,6 +22,8 @@ if(typeof process !== "undefined") {
   };
 }
 
+var declaredFunc:string[] = []
+
 export async function run(source : string, config: any) : Promise<[any, compiler.GlobalEnv]> {
   const wabtInterface = await wabt();
   const parsed = parse(source);
@@ -37,11 +39,12 @@ export async function run(source : string, config: any) : Promise<[any, compiler
     const memory = new WebAssembly.Memory({initial:10, maximum:100});
     importObject.js = { memory: memory };
   }
+  declaredFunc.push(compiled.declFuncs)
   const wasmSource = `(module
     (func $print (import "imports" "imported_func") (param i64))
     (func $printglobal (import "imports" "print_global_func") (param i64) (param i64))
     (import "js" "memory" (memory 1))
-    ${compiled.declFuncs}
+    ${declaredFunc.join("")}
     (func (export "exported_func") ${returnType}
       ${compiled.wasmSource}
       ${returnExpr}

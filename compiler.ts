@@ -66,7 +66,7 @@ export function compile(source: string, env: GlobalEnv): CompileResult {
     if(stmt.tag === "define") { funs.push(codeGen(stmt, env).join("\n")); }
   });
   const allFuns = funs.join("\n\n");
-  const stmts = ast.filter((stmt) => stmt.tag !== "define" && stmt.tag!="init");
+  const stmts = ast.filter((stmt) => stmt.tag !== "define"); 
 
   ast.forEach(s => {
     switch (s.tag) {
@@ -118,6 +118,7 @@ export function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
     case "pass":
       return []
     case "expr":
+      console.log(stmt.expr);
       var exprStmts = codeGenExpr(stmt.expr, env);
       return exprStmts.concat([`(local.set $$last)`]);
     case "define":
@@ -136,7 +137,7 @@ export function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
       })
       if (!cameBefore) { throw new Error("var_def should preceed all stmts") }
 
-      var params = stmt.parameters.map(p => `(param $${p.name} i32)`).join(" ");
+      var params = stmt.parameters.map(p => `(param $${p.name} i64)`).join(" ");
       // Generate stmts code for func
       var funcStmtsGroup = funcBody.map(stmt => codeGen(stmt, env))
       const funcStmts = [].concat([].concat.apply([], funcStmtsGroup));
@@ -154,6 +155,7 @@ function codeGenExpr(expr: Expr, env: GlobalEnv): Array<string> {
         case "None":
           return [`(i64.const ${NONE})`]
         case "number":
+          console.log()
           return ["(i64.const " + val.value + ")"];
         case "False":
           return [`(i64.const ${FALSE})`]
@@ -174,9 +176,10 @@ function codeGenExpr(expr: Expr, env: GlobalEnv): Array<string> {
       stmts = stmts.concat(["(i64." + expr.uniop.tag + ")"])
       return stmts.concat(["(i64.extend_i32_s)"])
     case "call":
+      console.log(expr.arguments)
       var valStmts = codeGenExpr(expr.arguments[0], env)
       valStmts.push(`(call $${expr.name})`);
-      return
+      return valStmts
   }
 }
 
