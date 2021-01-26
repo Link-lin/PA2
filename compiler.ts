@@ -1,4 +1,4 @@
-import { Stmt, Expr } from "./ast";
+import { Stmt, Expr, Op, UniOp } from "./ast";
 import { parse } from "./parser";
 
 // https://learnxinyminutes.com/docs/wasm/
@@ -113,21 +113,21 @@ function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
       var cameBefore = true
       var otherAppear = false
       funcBody.forEach(s => {
-        if(s.tag === "define") {throw new Error("no function declare inside function body")};
+        if (s.tag === "define") { throw new Error("no function declare inside function body") };
         if (s.tag !== "init") {
           otherAppear = true
         }
-        if (otherAppear && s.tag === "init" ) {
+        if (otherAppear && s.tag === "init") {
           cameBefore = false
         }
       })
-      if(cameBefore) { throw new Error("var_def should preceed all stmts")}
+      if (cameBefore) { throw new Error("var_def should preceed all stmts") }
       // TODO generate func name and such
 
       // Generate stmts code for func
       var funcStmtsGroup = funcBody.map(stmt => codeGen(stmt, env))
       const funcStmts = [].concat([].concat.apply([], funcStmtsGroup));
-      return funcStmts 
+      return funcStmts
   }
 }
 
@@ -149,14 +149,43 @@ function codeGenExpr(expr: Expr, env: GlobalEnv): Array<string> {
       }
     // Cases for binary operation and bultin2
     case "binop":
-      // Read the two expr
-      var stmts = codeGenExpr(expr.expr1, env)
+      checkType(expr.expr1, expr.op, "left side")
+      checkType(expr.expr2, expr.op, "right side")
+      var stmts = codeGenExpr(expr.expr1, env);
       //const stmts2 = codeGenExpr(expr.expr2)
       stmts = stmts.concat(codeGenExpr(expr.expr2, env))
       return stmts.concat(["(i64." + expr.op.tag + ")"])
+    case "uniop":
+      checkType(expr.expr, expr.uniop, "")
+      var stmts = codeGenExpr(expr.expr, env);
+      return stmts.concat(["(i64." + expr.uniop.tag + ")"])
     case "call":
       var valStmts = codeGenExpr(expr.arguments[0], env)
       valStmts.push(`(call $${expr.name})`);
       return
+  }
+}
+
+function checkType(expr: Expr, op: Op | UniOp, posStr: string) {
+  if (expr.tag === "literal") {
+    console.log("CheckType" + expr.tag +op)
+    const v = expr.value.tag;
+    const o = op.tag;
+    switch (v) {
+      case "None":
+        throw new Error(`Operation ${o} operated on ${posStr} None`)
+      case "number":
+        if (o === "eqz") {
+          throw new Error(`Operation ${o} operated on ${posStr} number`)
+        }
+      case "False":
+        if (o !== "eqz") {
+          throw new Error(`Operation ${o} operated on ${posStr} Boolean Value False`)
+        }
+      case "True":
+        if (o !== "eqz") {
+          throw new Error(`Operation ${o} operated on ${posStr} Boolean Value True`)
+        }
+    }
   }
 }

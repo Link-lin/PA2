@@ -73,7 +73,7 @@ function webStart() {
       repl = new BasicREPL(importObject);
       const source = document.getElementById("user-code") as HTMLTextAreaElement;
       setupRepl();
-      repl.run(source.value).then((r) => { renderResult(r); console.log ("run finished") })
+      repl.run(source.value).then((r) => {renderResult(r); console.log ("run finished") })
           .catch((e) => { renderError(e); console.log("run failed", e) });;
     });
   });
