@@ -356,6 +356,41 @@ describe('traverseStmt(c, s) function', () => {
       { name: "y", type: { tag: "int" } }])
 
   })
+
+  it('parsing typedef func with multiple stmts', () => {
+    const source = "def f(x:int, y:int):\n  x = x+y\n  return x\n"
+    const cursor = parser.parse(source).cursor();
+    // go to statement
+    cursor.firstChild();
+    // go to def
+    const parsedExpr = traverseStmt(cursor, source);
+    console.log(parsedExpr)
+
+    expect(parsedExpr).to.deep.equal({
+          body: [
+            { name: "x",
+              tag: "assign",
+              value: {
+                expr1: { name: "x", tag: "id" },
+                expr2: { name: "y", tag: "id" },
+                op: { tag: "add" },
+                tag: "binop"
+              }
+            },
+            { tag: "return",
+              value: { name: "x", tag: "id" }
+            }
+         ],
+          name: "f",
+          parameters: [
+            { name: "x", type: { tag: "int" } },
+            { name: "y", type: { tag: "int" } }
+          ],
+          ret: { tag: "int" },
+          tag: "define"
+    })
+  })
+  
   /*
   it('parseing if statements', () => {
     // const source = "if true:\n  a=2\nelif:\n  a=3\n  a=4\nelse:\n  a=1"
