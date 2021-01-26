@@ -1,7 +1,7 @@
 import { parser } from "lezer-python";
 import { Tree, TreeCursor } from "lezer-tree";
 import { getJSDocReturnType } from "typescript";
-import { Expr, Op, Stmt, Type, Decl, Parameter, UniOp } from "./ast";
+import { Expr, Op, Stmt, Type, Parameter, UniOp } from "./ast";
 
 export function traverseBinop(c: TreeCursor, s: string): Op {
   //switch (s.substring(c.from, c.to)) {
@@ -42,6 +42,15 @@ export function traverseUniop(c: TreeCursor, s: string): UniOp {
   }
 }
 
+export function traverseType(c: TreeCursor, s: string): Type {
+  switch (s.substring(c.from, c.to)) {
+    case "int":
+      return { tag: "int" }
+    case "bool":
+      return { tag: "bool" }
+  }
+}
+
 export function traverseParameters(s: string, t: TreeCursor): Array<Parameter> {
   t.firstChild();  // Focuses on open paren
   t.nextSibling(); // Focuses on a VariableName
@@ -57,7 +66,8 @@ export function traverseExpr(c: TreeCursor, s: string): Expr {
         tag: "literal",
         value: {
           tag: "number",
-          value: Number(s.substring(c.from, c.to))
+          value: Number(s.substring(c.from, c.to)),
+          type: { tag: "int" }
         }
       };
     case "Boolean":
@@ -67,7 +77,8 @@ export function traverseExpr(c: TreeCursor, s: string): Expr {
         tag: "literal",
         value: {
           tag: boolStr,
-          value: boolVal
+          value: boolVal,
+          type: { tag: "bool" }
         }
       }
     case "None":
@@ -102,7 +113,7 @@ export function traverseExpr(c: TreeCursor, s: string): Expr {
       c.nextSibling(); // go to snd expr
       const exp2 = traverseExpr(c, s);
       c.parent(); // pop binary expression
-      var tmp =  s.substring(c.from, c.to);
+      var tmp = s.substring(c.from, c.to);
       return {
         tag: "binop",
         expr1: exp1,
@@ -159,14 +170,26 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
     case "AssignStatement":
       c.firstChild(); // go to name
       const name = s.substring(c.from, c.to);
-      c.nextSibling(); // go to equals
+      c.nextSibling(); // go to equals/body
+      // var tmp = s.substring(c.from, c.to);
+      if (s.substring(c.from, c.to) !== "=") {
+        c.firstChild(); // focus on :
+        c.nextSibling(); // focus on type
+        const type = traverseType(c, s);
+        c.parent(); // pop body
+        c.nextSibling(); // go to equal
+        c.nextSibling(); // go to value
+        const value = traverseExpr(c, s);
+        c.parent();
+        return { tag: "init", name: name, type: type, value: value }
+      }
       c.nextSibling(); // go to value
       const value = traverseExpr(c, s);
       c.parent();
       return {
         tag: "assign",
         name: name,
-        value: value
+        value: value 
       }
     case "IfStatement":
       c.firstChild(); //go to "if" 
@@ -239,14 +262,13 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
       c.nextSibling(); // Focus on Body
       c.firstChild();  // Focus on :
       c.nextSibling(); // Focus on single statement (for now)
-      var decl: Decl[] = [{ tag: "init", name: "a", type: { tag: "int" }, value: { tag: "number", value: 4 } }]
       var body = [traverseStmt(c, s)];
       c.parent();      // Pop to Body
       c.parent();      // Pop to FunctionDefinition
       var ret: Type = { tag: "int" } // todo
       return {
         tag: "define",
-        name: funcName, parameters, decl, body, ret
+        name: funcName, parameters, body, ret
       }
     case "PassStatement":
       return { tag: "pass" }
@@ -260,9 +282,32 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
       return { tag: "return", value: returnVal };
     case "ExpressionStatement":
       c.firstChild();
-      const expr = traverseExpr(c, s);
-      c.parent(); // pop going into stmt
-      return { tag: "expr", expr: expr }
+      let childName = c.node.type.name;
+      if ((childName as any) === "CallExpression") { // Note(Joe): hacking around typescript here; it doesn't know about state
+        c.firstChild();
+        const callName = s.substring(c.from, c.to);
+        if (callName === "print") {
+          c.nextSibling(); // go to arglist
+          c.firstChild(); // go into arglist
+          c.nextSibling(); // find single argument in arglist
+          const arg = traverseExpr(c, s);
+          c.parent(); // pop arglist
+          c.parent(); // pop expressionstmt
+          return {
+            tag: "print",
+            // LOL TODO: not this
+            value: arg
+          };
+        }
+      }
+      else {
+        const expr = traverseExpr(c, s);
+        c.parent(); // pop going into stmt
+        return {
+          tag: "expr",
+          expr: expr
+        }
+      }
     default:
       throw new Error("Could not parse stmt at " + c.node.from + " " + c.node.to + ": " + s.substring(c.from, c.to));
   }

@@ -70,8 +70,6 @@ function webStart() {
         }
       });
     }
-
-
     document.getElementById("run").addEventListener("click", function(e) {
       repl = new BasicREPL(importObject);
       const source = document.getElementById("user-code") as HTMLTextAreaElement;

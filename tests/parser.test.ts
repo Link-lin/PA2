@@ -20,7 +20,7 @@ describe('traverseExpr(c,s) function', () => {
     const parsedExpr = traverseExpr(cursor, source);
 
     // Note: we have to use deep equality when comparing objects
-    expect(parsedExpr).to.deep.equal({ tag: "literal", value: { tag: "True", value: true } });
+    expect(parsedExpr).to.deep.equal({ tag: "literal", value: { tag: "True", value: true, type: { tag: "bool" } } });
 
   })
 
@@ -48,8 +48,8 @@ describe('traverseExpr(c,s) function', () => {
 
     expect(parsedExpr).to.deep.equal({
       expr: {
-        expr1: { tag: "literal", value: { tag: "number", value: 4 } },
-        expr2: { tag: "literal", value: { tag: "number", value: 3 } },
+        expr1: { tag: "literal", value: { tag: "number", value: 4, type: { tag: "int" } } },
+        expr2: { tag: "literal", value: { tag: "number", value: 3, type: { tag: "int" } } },
         op: { tag: "sub", },
         tag: "binop",
       },
@@ -69,8 +69,8 @@ describe('traverseBinop(c, s)', () => {
     const parsedExpr = traverseExpr(cursor, source);
     expect(parsedExpr).to.deep.equal({
       tag: "binop",
-      expr1: { tag: "literal", value: { tag: "number", value: 3 } },
-      expr2: { tag: "literal", value: { tag: "number", value: 5 } },
+      expr1: { tag: "literal", value: { tag: "number", value: 3, type: { tag: "int" } } },
+      expr2: { tag: "literal", value: { tag: "number", value: 5, type: { tag: "int" } } },
       op: { tag: "add" }
     })
   })
@@ -85,8 +85,8 @@ describe('traverseBinop(c, s)', () => {
     const parsedExpr = traverseExpr(cursor, source);
     expect(parsedExpr).to.deep.equal({
       tag: "binop",
-      expr1: { tag: "literal", value: { tag: "number", value: 3 } },
-      expr2: { tag: "literal", value: { tag: "number", value: 5 } },
+      expr1: { tag: "literal", value: { tag: "number", value: 3, type: { tag: "int" } } },
+      expr2: { tag: "literal", value: { tag: "number", value: 5, type: { tag: "int" } } },
       op: { tag: "mul" }
     })
   })
@@ -102,11 +102,11 @@ describe('traverseBinop(c, s)', () => {
     const parsedExpr = traverseExpr(cursor, source);
     expect(parsedExpr).to.deep.equal({
       tag: "binop",
-      expr1: { tag: "literal", value: { tag: "number", value: 3 } },
+      expr1: { tag: "literal", value: { tag: "number", value: 3, type: { tag: "int" } } },
       expr2: {
         tag: "binop",
-        expr1: { tag: "literal", value: { tag: "number", value: 4 } },
-        expr2: { tag: "literal", value: { tag: "number", value: 5 } },
+        expr1: { tag: "literal", value: { tag: "number", value: 4, type: { tag: "int" } } },
+        expr2: { tag: "literal", value: { tag: "number", value: 5, type: { tag: "int" } } },
         op: { tag: "mul" }
       },
       op: { tag: "add" }
@@ -126,11 +126,11 @@ describe('traverseBinop(c, s)', () => {
       tag: "binop",
       expr1: {
         tag: "binop",
-        expr1: { tag: "literal", value: { tag: "number", value: 3 } },
-        expr2: { tag: "literal", value: { tag: "number", value: 4 } },
+        expr1: { tag: "literal", value: { tag: "number", value: 3, type: { tag: "int" } } },
+        expr2: { tag: "literal", value: { tag: "number", value: 4, type: { tag: "int" } } },
         op: { tag: "mul" }
       },
-      expr2: { tag: "literal", value: { tag: "number", value: 5 } },
+      expr2: { tag: "literal", value: { tag: "number", value: 5, type: { tag: "int" } } },
       op: { tag: "add" }
     })
   })
@@ -146,8 +146,8 @@ describe('traverseBinop(c, s)', () => {
       const parsedExpr = traverseExpr(cursor, source);
       expect(parsedExpr).to.deep.equal({
         tag: "binop",
-        expr1: { tag: "literal", value: { tag: "number", value: 6 } },
-        expr2: { tag: "literal", value: { tag: "number", value: 4 } },
+        expr1: { tag: "literal", value: { tag: "number", value: 6, type: { tag: "int" } } },
+        expr2: { tag: "literal", value: { tag: "number", value: 4, type: { tag: "int" } } },
         op: { tag: "div_s" }
       })
     })
@@ -163,8 +163,8 @@ describe('traverseBinop(c, s)', () => {
     const parsedExpr = traverseExpr(cursor, source);
     expect(parsedExpr).to.deep.equal({
       tag: "binop",
-      expr1: { tag: "literal", value: { tag: "number", value: 6 } },
-      expr2: { tag: "literal", value: { tag: "number", value: 4 } },
+      expr1: { tag: "literal", value: { tag: "number", value: 6, type: { tag: "int" } } },
+      expr2: { tag: "literal", value: { tag: "number", value: 4, type: { tag: "int" } } },
       op: { tag: "le_s" }
     })
   })
@@ -323,6 +323,21 @@ describe('traverseExpr(c, s) function', () => {
 */
 
 describe('traverseStmt(c, s) function', () => {
+  it('parsing typedef statement', () => {
+    const source = "x : int = 4"
+    const cursor = parser.parse(source).cursor();
+    // go to statement
+    cursor.firstChild();
+    const parsedExpr = traverseStmt(cursor, source);
+    console.log(parsedExpr)
+
+    expect(parsedExpr).to.deep.equal({
+      name: "x",
+      tag: "init",
+      type: { tag: "int" },
+      value: { tag: "literal", value: { tag: "number", type: { tag: "int" }, value: 4 } }
+    });
+  })
   /*
   it('parseing if statements', () => {
     // const source = "if true:\n  a=2\nelif:\n  a=3\n  a=4\nelse:\n  a=1"

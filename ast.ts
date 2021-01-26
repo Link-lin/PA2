@@ -3,15 +3,14 @@ export type typeVar = { tag:"typeVar", name: string, type: Type}
 export type Parameter = { name: string } 
 export type Stmt =
     { tag: "assign", name: string, value: Expr }
-  | { tag: "define", name: string, parameters: Array<Parameter>, decl: Array<Decl>, body: Array<Stmt>, ret: Type}
+  | { tag: "define", name: string, parameters: Array<Parameter>, body: Array<Stmt>, ret: Type}
   | { tag: "if", cond: Expr, thn: Array<Stmt>, els: Array<Stmt>, elif: Array<Stmt>}
   | { tag: "while", expr: Expr, stmts: Array<Stmt>}
   | { tag: "pass"}
   | { tag: "return", value: Expr }
   | { tag: "expr", expr: Expr }
-
-export type Decl =
-    {tag: "init", name: string, type: Type, value: Literal}
+  | { tag: "print", value: Expr}
+  | { tag: "init", name: string, type: Type, value: Expr}
 
 export type Expr =
     { tag: "literal", value: Literal}
@@ -42,9 +41,9 @@ export type UniOp =
 
 export type Literal =
     { tag: "None" }
-  | { tag: "True", value: boolean }
-  | { tag: "False", value: boolean }
-  | { tag: "number", value: number }
+  | { tag: "True", value: boolean, type: Type}
+  | { tag: "False", value: boolean, type: Type}
+  | { tag: "number", value: number, type: Type}
 
 export type Type =
     { tag: "int" }
