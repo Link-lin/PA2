@@ -37,6 +37,7 @@ export function augmentEnv(env: GlobalEnv, stmts: Array<Stmt>): GlobalEnv {
 }
 
 type CompileResult = {
+  declFuncs: string,
   wasmSource: string,
   newEnv: GlobalEnv
 };
@@ -59,6 +60,14 @@ export function compile(source: string, env: GlobalEnv): CompileResult {
   // If not defined before 
   if (!cameBefore) throw new Error("Program should have var_def and func_def at top")
 
+  // Function definition
+  const funs : Array<string> = [];
+  ast.forEach((stmt, i) => {
+    if(stmt.tag === "define") { funs.push(codeGen(stmt, env).join("\n")); }
+  });
+  const allFuns = funs.join("\n\n");
+  const stmts = ast.filter((stmt) => stmt.tag !== "define" && stmt.tag!="init");
+
   ast.forEach(s => {
     switch (s.tag) {
       case "init":
@@ -72,10 +81,11 @@ export function compile(source: string, env: GlobalEnv): CompileResult {
   definedVars.forEach(v => {
     localDefines.push(`(local $${v} i64)`);
   })
-  const commandGroups = ast.map((stmt) => codeGen(stmt, withDefines));
+  const commandGroups = stmts.map((stmt) => codeGen(stmt, withDefines));
   const commands = localDefines.concat([].concat.apply([], commandGroups));
   console.log("Generated: ", commands.join("\n"));
   return {
+    declFuncs: allFuns,
     wasmSource: commands.join("\n"),
     newEnv: withDefines
   };
@@ -86,7 +96,7 @@ function envLookup(env: GlobalEnv, name: string): number {
   return (env.globals.get(name) * 8); // 8-byte values
 }
 
-function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
+export function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
   switch (stmt.tag) {
     case "init":
       const locationToSt = [`(i32.const ${envLookup(env, stmt.name)}) ;; ${stmt.name}`];
@@ -124,13 +134,13 @@ function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
           cameBefore = false
         }
       })
-      if (cameBefore) { throw new Error("var_def should preceed all stmts") }
-      // TODO generate func name and such
+      if (!cameBefore) { throw new Error("var_def should preceed all stmts") }
 
+      var params = stmt.parameters.map(p => `(param $${p.name} i32)`).join(" ");
       // Generate stmts code for func
       var funcStmtsGroup = funcBody.map(stmt => codeGen(stmt, env))
       const funcStmts = [].concat([].concat.apply([], funcStmtsGroup));
-      return funcStmts
+      return [`(func $${stmt.name} ${params} (result i64) ${funcStmts.join("\n")})`];
   }
 }
 

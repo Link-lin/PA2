@@ -257,7 +257,6 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
       while (c.nextSibling()) {
         whileStmts.push(traverseStmt(c, s));
       }
-
       return {
         tag: "while",
         expr: whileExpr,
@@ -274,7 +273,7 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
       c.firstChild();  // Focus on :
 
       var bodyStmt = []
-      // determine if init came first
+      // determine if init came first and func declare not inside function
       while (c.nextSibling()) {
         bodyStmt.push(traverseStmt(c, s));
       }
@@ -314,6 +313,17 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
             // LOL TODO: not this
             value: arg
           };
+        }else{
+          c.nextSibling(); // focus on arglist
+          c.firstChild(); //focus on (
+          var argList = []
+          while(c.nextSibling()){
+            if(s.substring(c.from, c.to)===","|| s.substring(c.from, c.to)===")") continue
+            var expr = traverseExpr(c, s); 
+            argList.push(expr)
+          }
+
+          return {tag: "expr", expr:{tag:"call", name: callName, arguments:argList}}
         }
       }
       else {

@@ -1,4 +1,4 @@
-import { TRUE, FALSE, NONE } from './compiler';
+import { TRUE, FALSE, NONE, codeGen } from './compiler';
 // This is a mashup of tutorials from:
 //
 // - https://github.com/AssemblyScript/wabt.js/
@@ -41,6 +41,7 @@ export async function run(source : string, config: any) : Promise<[any, compiler
     (func $print (import "imports" "imported_func") (param i64))
     (func $printglobal (import "imports" "print_global_func") (param i64) (param i64))
     (import "js" "memory" (memory 1))
+    ${compiled.declFuncs}
     (func (export "exported_func") ${returnType}
       ${compiled.wasmSource}
       ${returnExpr}

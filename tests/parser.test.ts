@@ -390,6 +390,29 @@ describe('traverseStmt(c, s) function', () => {
           tag: "define"
     })
   })
+
+  it('parsing function call', () => {
+    // const source = "if true:\n  a=2\nelif:\n  a=3\n  a=4\nelse:\n  a=1"
+    const source = "foo(3, 4)"
+    const cursor = parser.parse(source).cursor();
+    // go to statement
+    cursor.firstChild();
+    const parsedExpr = traverseStmt(cursor, source);
+    console.log(parsedExpr)
+
+    expect(parsedExpr).to.deep.equal({
+          expr: {
+            arguments: [
+              { tag: "literal", value: { tag: "number", type: { tag: "int" }, value: 3 } }, 
+              { tag: "literal", value: { tag: "number", type: { tag: "int" }, value: 4 } }
+            ],
+            name: "foo",
+            tag: "call"
+          },
+         tag: "expr"
+    });
+  })
+ 
   
   /*
   it('parseing if statements', () => {
