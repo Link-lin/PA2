@@ -2,6 +2,9 @@ import { Stmt, Expr } from "./ast";
 import { parse } from "./parser";
 
 // https://learnxinyminutes.com/docs/wasm/
+const TRUE = BigInt(1) << BigInt(32)
+const FALSE= BigInt(2) << BigInt(32)
+const NONE = BigInt(4) << BigInt(32)
 
 type LocalEnv = Map<string, boolean>;
 // Numbers are offsets into global memory
@@ -62,7 +65,7 @@ export function compile(source: string, env: GlobalEnv): CompileResult {
 
 function envLookup(env: GlobalEnv, name: string): number {
   if (!env.globals.has(name)) { console.log("Could not find " + name + " in ", env); throw new Error("Could not find name " + name); }
-  return (env.globals.get(name) * 4); // 4-byte values
+  return (env.globals.get(name) * 8); // 8-byte values
 }
 
 function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
@@ -94,16 +97,13 @@ function codeGenExpr(expr: Expr, env: GlobalEnv): Array<string> {
       const val = expr.value
       switch (val.tag) {
         case "None":
-          const n = BigInt(1 << 32)
-          return ["(i64.const " + n.toString() + ")"]
+          return [`(i64.const ${NONE})`]
         case "number":
           return ["(i64.const " + val.value + ")"];
         case "False":
-          const f = BigInt(2 << 32)
-          return ["(i64.const " + f.toString() + ")"]
+          return [`(i64.const ${FALSE})`]
         case "True":
-          const t = BigInt(4 << 32)
-          return ["(i64.const " + t.toString() + ")"]
+          return [`(i64.const ${TRUE})`]
       }
     // Cases for binary operation and bultin2
     case "binop":
