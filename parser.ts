@@ -51,12 +51,22 @@ export function traverseType(c: TreeCursor, s: string): Type {
   }
 }
 
-export function traverseParameters(s: string, t: TreeCursor): Array<Parameter> {
-  t.firstChild();  // Focuses on open paren
-  t.nextSibling(); // Focuses on a VariableName
-  let name = s.substring(t.from, t.to);
-  t.parent();      // Pop to ParamList
-  return [{ name }]
+export function traverseParameters( c: TreeCursor, s:string): Array<Parameter> {
+  c.firstChild();  // Focuses on open paren
+
+  var paramList = []
+  while(c.nextSibling()){
+    if(s.substring(c.from, c.to) === "," || s.substring(c.from,c.to) === ")") continue
+     
+    let name = s.substring(c.from, c.to);
+    c.nextSibling(); // focus on body
+    c.firstChild(); // Focus on :
+    c.nextSibling(); // focus on body
+    let t = traverseType(c, s);
+    c.parent();
+    paramList.push({name: name, type: t})
+  }
+  return paramList
 }
 
 export function traverseExpr(c: TreeCursor, s: string): Expr {
@@ -258,7 +268,7 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
       c.nextSibling(); // Focus on name of function
       var funcName = s.substring(c.from, c.to);
       c.nextSibling(); // Focus on ParamList
-      var parameters = traverseParameters(s, c)
+      var parameters = traverseParameters(c, s);
       c.nextSibling(); // Focus on Body
       c.firstChild();  // Focus on :
       c.nextSibling(); // Focus on single statement (for now)

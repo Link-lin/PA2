@@ -1,3 +1,4 @@
+import { TRUE, FALSE, NONE } from './compiler';
 // This is a mashup of tutorials from:
 //
 // - https://github.com/AssemblyScript/wabt.js/
@@ -48,6 +49,12 @@ export async function run(source : string, config: any) : Promise<[any, compiler
   const myModule = wabtInterface.parseWat("test.wat", wasmSource);
   var asBinary = myModule.toBinary({});
   var wasmModule = await WebAssembly.instantiate(asBinary.buffer, importObject);
-  const result = (wasmModule.instance.exports.exported_func as any)();
+  var result = (wasmModule.instance.exports.exported_func as any)();
+
+  // Handle Boolean value and None value
+  if(result === TRUE){ result ="True" } 
+  else if(result === NONE){ result = "None" }
+  else if(result === FALSE){ result = "false" }
+
   return [result, compiled.newEnv];
 }

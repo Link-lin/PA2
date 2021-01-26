@@ -1,6 +1,6 @@
 export type typeVar = { tag:"typeVar", name: string, type: Type}
 
-export type Parameter = { name: string } 
+export type Parameter = { name: string, type: Type } 
 export type Stmt =
     { tag: "assign", name: string, value: Expr }
   | { tag: "define", name: string, parameters: Array<Parameter>, body: Array<Stmt>, ret: Type}

@@ -1,6 +1,6 @@
 const python = require('lezer-python');
 
-const input = "x:int = 3"
+const input = "def f(x:int):\n  return x"
 
 const tree = python.parser.parse(input);
 

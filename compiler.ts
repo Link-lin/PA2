@@ -2,13 +2,14 @@ import { Stmt, Expr, Op, UniOp } from "./ast";
 import { parse } from "./parser";
 
 // https://learnxinyminutes.com/docs/wasm/
-const TRUE = BigInt(1) << BigInt(32)
-const FALSE = BigInt(2) << BigInt(32)
-const NONE = BigInt(4) << BigInt(32)
+export const TRUE = BigInt(1) << BigInt(32)
+export const FALSE = BigInt(2) << BigInt(32)
+export const NONE = BigInt(4) << BigInt(32)
 
 type LocalEnv = Map<string, boolean>;
 // Numbers are offsets into global memory
 export type GlobalEnv = {
+  types: Map<string, string>
   globals: Map<string, number>;
   offset: number;
 }
@@ -16,10 +17,12 @@ export const emptyEnv = { globals: new Map(), offset: 0 };
 
 export function augmentEnv(env: GlobalEnv, stmts: Array<Stmt>): GlobalEnv {
   const newEnv = new Map(env.globals);
+  const newTypes = new Map(env.types);
   var newOffset = env.offset;
   stmts.forEach((s) => {
     switch (s.tag) {
       case "init":
+        newTypes.set(s.name, s.type.tag);
         newEnv.set(s.name, newOffset);
         newOffset += 1;
         break;
@@ -27,6 +30,7 @@ export function augmentEnv(env: GlobalEnv, stmts: Array<Stmt>): GlobalEnv {
   })
   //console.log(newEnv)
   return {
+    types: newTypes,
     globals: newEnv,
     offset: newOffset
   }
@@ -149,16 +153,17 @@ function codeGenExpr(expr: Expr, env: GlobalEnv): Array<string> {
       }
     // Cases for binary operation and bultin2
     case "binop":
-      checkType(expr.expr1, expr.op, "left side")
-      checkType(expr.expr2, expr.op, "right side")
+      checkType(expr.expr1, expr.op, "left side", env)
+      checkType(expr.expr2, expr.op, "right side", env)
       var stmts = codeGenExpr(expr.expr1, env);
       //const stmts2 = codeGenExpr(expr.expr2)
       stmts = stmts.concat(codeGenExpr(expr.expr2, env))
       return stmts.concat(["(i64." + expr.op.tag + ")"])
     case "uniop":
-      checkType(expr.expr, expr.uniop, "")
+      checkType(expr.expr, expr.uniop, "", env)
       var stmts = codeGenExpr(expr.expr, env);
-      return stmts.concat(["(i64." + expr.uniop.tag + ")"])
+      stmts = stmts.concat(["(i64." + expr.uniop.tag + ")"])
+      return stmts.concat(["(i64.extend_i32_s)"])
     case "call":
       var valStmts = codeGenExpr(expr.arguments[0], env)
       valStmts.push(`(call $${expr.name})`);
@@ -166,7 +171,7 @@ function codeGenExpr(expr: Expr, env: GlobalEnv): Array<string> {
   }
 }
 
-function checkType(expr: Expr, op: Op | UniOp, posStr: string) {
+function checkType(expr: Expr, op: Op | UniOp, posStr: string, gEnv: GlobalEnv) {
   if (expr.tag === "literal") {
     console.log("CheckType" + expr.tag +op)
     const v = expr.value.tag;
@@ -187,5 +192,9 @@ function checkType(expr: Expr, op: Op | UniOp, posStr: string) {
           throw new Error(`Operation ${o} operated on ${posStr} Boolean Value True`)
         }
     }
+  }
+  else if(expr.tag === "id"){
+    //TODO
+    envLookup(gEnv, expr.name)
   }
 }

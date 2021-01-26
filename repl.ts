@@ -16,6 +16,7 @@ export class BasicREPL {
       this.importObject.js = { memory: memory };
     }
     this.currentEnv = {
+      types: new Map(),
       globals: new Map(),
       offset: 0
     };
@@ -24,7 +25,6 @@ export class BasicREPL {
     this.importObject.updateNameMap(this.currentEnv); // is this the right place for updating the object's env?
     const [result, newEnv] = await run(source, {importObject: this.importObject, env: this.currentEnv});
     this.currentEnv = newEnv;
-    console.log(newEnv);
     return result;
   }
 }

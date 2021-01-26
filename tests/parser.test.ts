@@ -1,7 +1,7 @@
 import * as mocha from 'mocha';
 import { expect } from 'chai';
 import { parser } from 'lezer-python';
-import { traverseExpr, traverseStmt, traverse, parse } from '../parser';
+import { traverseExpr, traverseStmt, traverse, parse, traverseParameters } from '../parser';
 
 // We write tests for each function in parser.ts here. Each function gets its 
 // own describe statement. Each it statement represents a single test. You
@@ -323,7 +323,7 @@ describe('traverseExpr(c, s) function', () => {
 */
 
 describe('traverseStmt(c, s) function', () => {
-  it('parsing typedef statement', () => {
+  it('parsing typedef assign statement', () => {
     const source = "x : int = 4"
     const cursor = parser.parse(source).cursor();
     // go to statement
@@ -337,6 +337,24 @@ describe('traverseStmt(c, s) function', () => {
       type: { tag: "int" },
       value: { tag: "literal", value: { tag: "number", type: { tag: "int" }, value: 4 } }
     });
+  })
+
+  it('parsing typedef func parameter', () => {
+    const source = "def f(x:int, y:int ):\n  return x"
+    const cursor = parser.parse(source).cursor();
+    // go to statement
+    cursor.firstChild();
+    // go to def
+    cursor.firstChild();
+    cursor.nextSibling(); // name of function
+    cursor.nextSibling(); // name of param
+    const parsedExpr = traverseParameters(cursor, source);
+    console.log(parsedExpr)
+
+    expect(parsedExpr).to.deep.equal([
+      { name: "x", type: { tag: "int" } },
+      { name: "y", type: { tag: "int" } }])
+
   })
   /*
   it('parseing if statements', () => {
