@@ -22,8 +22,12 @@ export class BasicREPL {
   }
   async run(source : string) : Promise<any> {
     this.importObject.updateNameMap(this.currentEnv); // is this the right place for updating the object's env?
+    console.log("REPL RUN")
+    console.log(this.importObject);
+    console.log(this.currentEnv);
     const [result, newEnv] = await run(source, {importObject: this.importObject, env: this.currentEnv});
     this.currentEnv = newEnv;
+    console.log(newEnv);
     return result;
   }
 }

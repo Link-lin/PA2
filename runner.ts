@@ -25,8 +25,10 @@ export async function run(source : string, config: any) : Promise<[any, compiler
   const wabtInterface = await wabt();
   const parsed = parse(source);
   var returnType = "";
+  var returnExpr = "";
   if(parsed[parsed.length - 1].tag === "expr") {
-    returnType = "(result i32)";
+    returnType = "(result i64)";
+    returnExpr = "(local.get $$last)"
   }
   const compiled = compiler.compile(source, config.env);
   const importObject = config.importObject;
@@ -40,8 +42,9 @@ export async function run(source : string, config: any) : Promise<[any, compiler
     (import "js" "memory" (memory 1))
     (func (export "exported_func") ${returnType}
       ${compiled.wasmSource}
-    )
-  )`;
+      ${returnExpr}
+  ))`;
+  //console.log(wasmSource);
   const myModule = wabtInterface.parseWat("test.wat", wasmSource);
   var asBinary = myModule.toBinary({});
   var wasmModule = await WebAssembly.instantiate(asBinary.buffer, importObject);

@@ -22,7 +22,7 @@ export function augmentEnv(env: GlobalEnv, stmts: Array<Stmt>): GlobalEnv {
         break;
     }
   })
-  console.log(newEnv)
+  //console.log(newEnv)
   return {
     globals: newEnv,
     offset: newOffset
@@ -45,7 +45,7 @@ export function compile(source: string, env: GlobalEnv): CompileResult {
         break;
     }
   });
-  console.log(definedVars);
+  //console.log(definedVars);
   const scratchVar: string = `(local $$last i64)`;
   const localDefines = [scratchVar];
   definedVars.forEach(v => {
@@ -89,21 +89,21 @@ function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
 function codeGenExpr(expr: Expr, env: GlobalEnv): Array<string> {
   switch (expr.tag) {
     case "id":
-      return [`(i32.const ${envLookup(env, expr.name)})`, `i32.load `]
+      return [`(i32.const ${envLookup(env, expr.name)})`, `(i64.load)`]
     case "literal":
       const val = expr.value
       switch (val.tag) {
         case "None":
-          const n = 1 << 32
-          return ["(i64.const" + n.toString() + ")"]
+          const n = BigInt(1 << 32)
+          return ["(i64.const " + n.toString() + ")"]
         case "number":
           return ["(i64.const " + val.value + ")"];
         case "False":
-          const f = 2 << 32
-          return ["(i64.const" + f.toString() + ")" ]
+          const f = BigInt(2 << 32)
+          return ["(i64.const " + f.toString() + ")"]
         case "True":
-          const t = 4 << 32
-          return ["(i64.const" + t.toString() + ")" ]
+          const t = BigInt(4 << 32)
+          return ["(i64.const " + t.toString() + ")"]
       }
     // Cases for binary operation and bultin2
     case "binop":
