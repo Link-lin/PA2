@@ -220,7 +220,9 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
       while (c.nextSibling()) {
         thnStmts.push(traverseStmt(c, s));
       }
-      c.parent(); // go back top
+      c.parent(); // pop body
+      c.parent(); // go back to if
+      //var tmp = s.substring(c.from, c.to)
       // if there is elif or else
       var hasElif = false;
       if (c.nextSibling()) {
@@ -247,6 +249,7 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
       }
       return {
         tag: "if",
+        //cond: {tag:"id", name: tmp},
         cond: cond,
         thn: thnStmts,
         els: elseStmts,

@@ -44,6 +44,7 @@ var isFunc = false
 
 export function compile(source: string, env: GlobalEnv): CompileResult {
   const ast = parse(source);
+  console.log(ast);
   const definedVars = new Set();
   const withDefines = augmentEnv(env, ast);
   // Check if init or func def came before all other
@@ -132,13 +133,13 @@ export function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
       const thenStmts = thenStmtsGroup.join("\n")
 
       let s = [`(if (local.get $cond)\n (then\n ${thenStmts})`]
+      console.log(stmt.els.length)
       if (stmt.els.length != 0) {
         const elseStmtsGroup = stmt.els.map(elstmt=> codeGen(elstmt, env).join("\n"));
         const elseStmts = elseStmtsGroup.join("\n")
         s = s.concat(`(else\n ${elseStmts})`)
       }
       return conStmts.concat(s).concat(")");
-
     case "print":
       var valStmts = codeGenExpr(stmt.value, env);
       return valStmts.concat([
@@ -195,8 +196,7 @@ function codeGenExpr(expr: Expr, env: GlobalEnv): Array<string> {
         return [`(i32.const ${envLookup(env, expr.name)})`, `(i64.load)`]
       }
       else {
-        //Take care of local def 
-        return [`(local.get $${expr.name})`] // take cares of parameters
+        return [`(local.get $${expr.name})`] // take cares of parameters and local def
       }
     case "literal":
       const val = expr.value

@@ -475,6 +475,17 @@ describe('traverseStmt(c, s) function', () => {
     });
   })
 
+  it('parsing if statements', () => {
+    // const source = "if true:\n  a=2\nelif:\n  a=3\n  a=4\nelse:\n  a=1"
+    const source = "if True:\n print(3)\nelse:\n print(4)"
+    const cursor = parser.parse(source).cursor();
+    // go to statement
+    cursor.firstChild()
+    const parsedExpr = traverseStmt(cursor, source);
+    
+    expect(parsedExpr).to.deep.equal({})
+  })
+
 
   /*
   it('parseing if statements', () => {
