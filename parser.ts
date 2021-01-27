@@ -247,6 +247,8 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
           }
         }
       }
+      c.parent() // pop up to body
+      c.parent() // pop to if
       return {
         tag: "if",
         //cond: {tag:"id", name: tmp},
@@ -264,8 +266,11 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
 
       var whileStmts = [];
       while (c.nextSibling()) {
+        console.log(traverseStmt(c,s))
         whileStmts.push(traverseStmt(c, s));
       }
+      c.parent()  // pop up to body
+      c.parent() // pop to while
       return {
         tag: "while",
         expr: whileExpr,

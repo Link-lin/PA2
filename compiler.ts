@@ -83,7 +83,6 @@ export function compile(source: string, env: GlobalEnv): CompileResult {
   })
 
   const commandGroups = stmts.map((stmt) => codeGen(stmt, withDefines).join("\n"));
-  console.log(commandGroups)
   const commands = localDefines.concat([].concat.apply([], commandGroups));
   //const commands = commandGroups.join("")
   console.log("Generated: ", commands.join("\n"));
@@ -100,7 +99,6 @@ function envLookup(env: GlobalEnv, name: string): number {
 }
 
 export function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
-  console.log(env);
   switch (stmt.tag) {
     case "init":
       if (isFunc) {
@@ -121,7 +119,9 @@ export function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
       }
       const locationToStore = [`(i32.const ${envLookup(env, stmt.name)}) ;; ${stmt.name}`];
       var valStmts = codeGenExpr(stmt.value, env);
-      return locationToStore.concat(valStmts).concat([`(i64.store)`]);
+      let tmp = locationToStore.concat(valStmts).concat([`(i64.store)`]);
+      console.log(tmp);
+      return tmp
     case "if":
       var conStmts: string[] = []
       const cond = codeGenExpr(stmt.cond, env);
@@ -140,7 +140,7 @@ export function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
 
       //let s = [`(if (local.get $cond)\n (then\n ${thenStmts})`]
       let s = [`(if (then\n ${thenStmts})`]
-      console.log(stmt.els.length)
+      //console.log(stmt.els.length)
       if (stmt.els.length != 0) {
         const elseStmtsGroup = stmt.els.map(elstmt => codeGen(elstmt, env).join("\n"));
         const elseStmts = elseStmtsGroup.join("\n")
@@ -159,10 +159,22 @@ export function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
     case "pass":
       return []
     case "expr":
-      console.log(stmt.expr);
       var exprStmts = codeGenExpr(stmt.expr, env);
       // if (isFunc) return exprStmts
       return exprStmts.concat([`(local.set $$last)`]);
+    case "while":
+      var wCond = codeGenExpr(stmt.expr, env);
+      var condStmts: string[] = []
+      condStmts.push(wCond.join("\n"));
+      condStmts.push(`(i64.const ${TRUE}) \n (i64.ne)\n`) // Only necessary when it's actually True false in cond
+
+      var exprStmts: string[] = [];
+      //console.log(stmt.stmts);
+      stmt.stmts.forEach(st => exprStmts.push(codeGen(st, env).join("\n")));
+      //console.log(exprStmts);
+
+      let whileStmts = `(block\n (loop \n ${condStmts.join("\n")} (br_if 1) ${exprStmts.join("\n")} (br 0)) )`
+      return [whileStmts]
     case "define":
       const funcBody = stmt.body
       // Check if init or func def came before all other
@@ -232,23 +244,22 @@ function codeGenExpr(expr: Expr, env: GlobalEnv): Array<string> {
     case "uniop":
       //TODO 
       checkTypeOp(expr.expr, expr.uniop, "", env)
-      var stmts:string[] = []
-      console.log(expr)
-      if (expr.uniop.tag === "neg" ) {
+      var stmts: string[] = []
+      if (expr.uniop.tag === "neg") {
         expr = {
           tag: "binop",
           expr1: { tag: "literal", value: { tag: "number", value: 0, type: { tag: "int" } } },
           expr2: expr.expr,
-          op: {tag:"sub"}
+          op: { tag: "sub" }
         }
         stmts = codeGenExpr(expr, env);
       }
       return stmts
-      /*
-      var stmts = codeGenExpr(expr.expr, env);
-      stmts = stmts.concat(["(i64." + expr.uniop.tag + ")"])
-      return stmts.concat(["(i64.extend_i32_s)"])
-      */
+    /*
+    var stmts = codeGenExpr(expr.expr, env);
+    stmts = stmts.concat(["(i64." + expr.uniop.tag + ")"])
+    return stmts.concat(["(i64.extend_i32_s)"])
+    */
     case "call":
       var valStmts: string[] = []
       expr.arguments.forEach(arg => valStmts.push(codeGenExpr(arg, env).join("\n")))
