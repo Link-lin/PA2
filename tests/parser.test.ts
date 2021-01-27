@@ -354,17 +354,15 @@ describe('traverseStmt(c, s) function', () => {
     expect(parsedExpr).to.deep.equal([
       { name: "x", type: { tag: "int" } },
       { name: "y", type: { tag: "int" } }])
-
   })
 
-  it('parsing typedef func with multiple stmts', () => {
+  it('parsing typedef func with multiple stmts and no retType', () => {
     const source = "def f(x:int, y:int):\n  x = x+y\n  return x\n"
     const cursor = parser.parse(source).cursor();
     // go to statement
     cursor.firstChild();
     // go to def
     const parsedExpr = traverseStmt(cursor, source);
-    console.log(parsedExpr)
 
     expect(parsedExpr).to.deep.equal({
           body: [
@@ -386,7 +384,39 @@ describe('traverseStmt(c, s) function', () => {
             { name: "x", type: { tag: "int" } },
             { name: "y", type: { tag: "int" } }
           ],
-          ret: { tag: "int" },
+          ret: null,
+          tag: "define"
+    })
+  })
+
+  it('parsing typedef func with multiple stmts and retType', () => {
+    const source = "def f(x:int, y:int)->bool:\n  x = x+y\n  return x\n"
+    const cursor = parser.parse(source).cursor();
+    // go to statement
+    cursor.firstChild();
+    // go to def
+    const parsedExpr = traverseStmt(cursor, source);
+    expect(parsedExpr).to.deep.equal({
+          body: [
+            { name: "x",
+              tag: "assign",
+              value: {
+                expr1: { name: "x", tag: "id" },
+                expr2: { name: "y", tag: "id" },
+                op: { tag: "add" },
+                tag: "binop"
+              }
+            },
+            { tag: "return",
+              value: { name: "x", tag: "id" }
+            }
+         ],
+          name: "f",
+          parameters: [
+            { name: "x", type: { tag: "int" } },
+            { name: "y", type: { tag: "int" } }
+          ],
+          ret: {tag:"bool"},
           tag: "define"
     })
   })

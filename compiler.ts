@@ -6,7 +6,7 @@ export const TRUE = BigInt(1) << BigInt(32)
 export const FALSE = BigInt(2) << BigInt(32)
 export const NONE = BigInt(4) << BigInt(32)
 
-type LocalEnv = Map<string, boolean>;
+type LocalEnv = Map<string, number>;
 // Numbers are offsets into global memory
 export type GlobalEnv = {
   types: Map<string, string>
@@ -112,6 +112,7 @@ export function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
         "(call $print)"
       ]);
     case "return":
+      console.log(stmt.value)
       var valStmts = codeGenExpr(stmt.value, env);
       valStmts.push("return")
       return valStmts;

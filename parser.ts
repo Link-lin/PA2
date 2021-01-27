@@ -269,6 +269,15 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
       var funcName = s.substring(c.from, c.to);
       c.nextSibling(); // Focus on ParamList
       var parameters = traverseParameters(c, s);
+      c.nextSibling() // focus on body/ret type
+      // Has return type
+      var retType= null;
+      // parse return type
+      if(s.substring(c.from,c.to)[0] === '-'){
+        c.firstChild();
+        retType = traverseType(c, s);
+        c.parent();
+      }
       c.nextSibling(); // Focus on Body
       c.firstChild();  // Focus on :
 
@@ -280,10 +289,11 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
 
       c.parent();      // Pop to Body
       c.parent();      // Pop to FunctionDefinition
+      
       var ret: Type = { tag: "int" } // todo
       return {
         tag: "define",
-        name: funcName, parameters, body:bodyStmt, ret
+        name: funcName, parameters, body:bodyStmt, ret:retType
       }
     case "PassStatement":
       return { tag: "pass" }
