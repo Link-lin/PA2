@@ -125,17 +125,24 @@ export function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
     case "if":
       var conStmts: string[] = []
       const cond = codeGenExpr(stmt.cond, env);
-      conStmts.push("(local $cond i32)" + cond.join("\n"))
-      conStmts.push(`(i64.const ${TRUE}) \n (i64.eq)\n`)
-      conStmts.push(` (local.set $cond)`)
+      //conStmts.push("(local $cond i32)" + cond.join("\n"))
+      if ((stmt.cond.tag) === "literal") {
+        if (stmt.cond.value.tag == "number") {
+          throw new Error("Cannot have int as condition")
+        }
+      }
+      conStmts.push(cond.join("\n"))
+      conStmts.push(`(i64.const ${TRUE}) \n (i64.eq)\n`) // Only necessary when it's actually True false in cond
+      //conStmts.push(` (local.set $cond)`)
 
       const thenStmtsGroup = stmt.thn.map(thnstmt => codeGen(thnstmt, env).join("\n"));
       const thenStmts = thenStmtsGroup.join("\n")
 
-      let s = [`(if (local.get $cond)\n (then\n ${thenStmts})`]
+      //let s = [`(if (local.get $cond)\n (then\n ${thenStmts})`]
+      let s = [`(if (then\n ${thenStmts})`]
       console.log(stmt.els.length)
       if (stmt.els.length != 0) {
-        const elseStmtsGroup = stmt.els.map(elstmt=> codeGen(elstmt, env).join("\n"));
+        const elseStmtsGroup = stmt.els.map(elstmt => codeGen(elstmt, env).join("\n"));
         const elseStmts = elseStmtsGroup.join("\n")
         s = s.concat(`(else\n ${elseStmts})`)
       }
@@ -217,18 +224,40 @@ function codeGenExpr(expr: Expr, env: GlobalEnv): Array<string> {
       var stmts = codeGenExpr(expr.expr1, env);
       //const stmts2 = codeGenExpr(expr.expr2)
       stmts = stmts.concat(codeGenExpr(expr.expr2, env))
-      return stmts.concat(["(i64." + expr.op.tag + ")"])
+      stmts = stmts.concat(["(i64." + expr.op.tag + ")"])
+      // If result is int don't need to signextend
+      if (resultIsInt(expr.op)) { return stmts }
+      // Sign extend possible boolean result
+      return stmts.concat([(`(if (result i64) (then (i64.const ${TRUE})) (else (i64.const ${FALSE})))`)])
     case "uniop":
+      //TODO 
       checkTypeOp(expr.expr, expr.uniop, "", env)
+      var stmts:string[] = []
+      console.log(expr)
+      if (expr.uniop.tag === "neg" ) {
+        expr = {
+          tag: "binop",
+          expr1: { tag: "literal", value: { tag: "number", value: 0, type: { tag: "int" } } },
+          expr2: expr.expr,
+          op: {tag:"sub"}
+        }
+        stmts = codeGenExpr(expr, env);
+      }
+      return stmts
+      /*
       var stmts = codeGenExpr(expr.expr, env);
       stmts = stmts.concat(["(i64." + expr.uniop.tag + ")"])
       return stmts.concat(["(i64.extend_i32_s)"])
+      */
     case "call":
       var valStmts: string[] = []
       expr.arguments.forEach(arg => valStmts.push(codeGenExpr(arg, env).join("\n")))
       valStmts.push(`(call $${expr.name})`);
       return valStmts
   }
+}
+function resultIsInt(op: Op): boolean {
+  return (op.tag === "add" || op.tag === "sub" || op.tag === "mul" || op.tag == "div_s" || op.tag == "rem_s")
 }
 
 function checkTypeOp(expr: Expr, op: Op | UniOp, posStr: string, gEnv: GlobalEnv) {
