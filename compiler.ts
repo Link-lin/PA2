@@ -41,11 +41,13 @@ type CompileResult = {
   newEnv: GlobalEnv
 };
 
+var localEnv:LocalEnv = new Map()
+var isFunc = false
+
 export function compile(source: string, env: GlobalEnv): CompileResult {
   const ast = parse(source);
   const definedVars = new Set();
   const withDefines = augmentEnv(env, ast);
-  const localEnv:LocalEnv = new Map();
   // Check if init or func def came before all other
   var cameBefore = true
   var otherAppear = false
@@ -63,8 +65,9 @@ export function compile(source: string, env: GlobalEnv): CompileResult {
   // Function definition
   const funcs : Array<string> = [];
   ast.forEach((stmt, i) => {
-    if(stmt.tag === "define") { funcs.push(codeGen(stmt, withDefines).join("\n")); }
+    if(stmt.tag === "define") {isFunc = true; funcs.push(codeGen(stmt, withDefines).join("\n")); }
   });
+  isFunc = false;
   const allFuns = funcs.join("\n\n");
   const stmts = ast.filter((stmt) => stmt.tag !== "define"); 
   ast.forEach(s => {
@@ -112,8 +115,6 @@ export function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
         "(call $print)"
       ]);
     case "return":
-      console.log(stmt.value)
-      console.log(env);
       var valStmts = codeGenExpr(stmt.value, env);
       valStmts.push("return")
       return valStmts;
@@ -122,9 +123,11 @@ export function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
     case "expr":
       console.log(stmt.expr);
       var exprStmts = codeGenExpr(stmt.expr, env);
+      if(isFunc) return exprStmts
       return exprStmts.concat([`(local.set $$last)`]);
     case "define":
       const funcBody = stmt.body
+      const scratchVar: string = `(local $$last i64)`;
       // Check if init or func def came before all other
       var cameBefore = true
       var otherAppear = false
@@ -150,7 +153,12 @@ export function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
 function codeGenExpr(expr: Expr, env: GlobalEnv): Array<string> {
   switch (expr.tag) {
     case "id":
-      return [`(i32.const ${envLookup(env, expr.name)})`, `(i64.load)`]
+      if(env.globals.has(expr.name)){
+        return [`(i32.const ${envLookup(env, expr.name)})`, `(i64.load)`]
+      }
+      else{
+        return [`(local.get $${expr.name})`]
+      }
     case "literal":
       const val = expr.value
       switch (val.tag) {
@@ -178,8 +186,8 @@ function codeGenExpr(expr: Expr, env: GlobalEnv): Array<string> {
       stmts = stmts.concat(["(i64." + expr.uniop.tag + ")"])
       return stmts.concat(["(i64.extend_i32_s)"])
     case "call":
-      
-      var valStmts = codeGenExpr(expr.arguments[0], env)
+      var valStmts = []
+      expr.arguments.forEach(arg => valStmts.push(codeGenExpr(arg, env)))
       valStmts.push(`(call $${expr.name})`);
       return valStmts
   }
