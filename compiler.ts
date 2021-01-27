@@ -28,7 +28,6 @@ export function augmentEnv(env: GlobalEnv, stmts: Array<Stmt>): GlobalEnv {
         break;
     }
   })
-  //console.log(newEnv)
   return {
     types: newTypes,
     globals: newEnv,
@@ -46,6 +45,7 @@ export function compile(source: string, env: GlobalEnv): CompileResult {
   const ast = parse(source);
   const definedVars = new Set();
   const withDefines = augmentEnv(env, ast);
+  console.log(withDefines);
   // Check if init or func def came before all other
   var cameBefore = true
   var otherAppear = false
@@ -61,13 +61,12 @@ export function compile(source: string, env: GlobalEnv): CompileResult {
   if (!cameBefore) throw new Error("Program should have var_def and func_def at top")
 
   // Function definition
-  const funs : Array<string> = [];
+  const funcs : Array<string> = [];
   ast.forEach((stmt, i) => {
-    if(stmt.tag === "define") { funs.push(codeGen(stmt, env).join("\n")); }
+    if(stmt.tag === "define") { funcs.push(codeGen(stmt, withDefines).join("\n")); }
   });
-  const allFuns = funs.join("\n\n");
+  const allFuns = funcs.join("\n\n");
   const stmts = ast.filter((stmt) => stmt.tag !== "define"); 
-
   ast.forEach(s => {
     switch (s.tag) {
       case "init":
@@ -81,6 +80,8 @@ export function compile(source: string, env: GlobalEnv): CompileResult {
   definedVars.forEach(v => {
     localDefines.push(`(local $${v} i64)`);
   })
+
+  console.log(withDefines);
   const commandGroups = stmts.map((stmt) => codeGen(stmt, withDefines));
   const commands = localDefines.concat([].concat.apply([], commandGroups));
   console.log("Generated: ", commands.join("\n"));
@@ -97,6 +98,7 @@ function envLookup(env: GlobalEnv, name: string): number {
 }
 
 export function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
+  console.log(env);
   switch (stmt.tag) {
     case "init":
       const locationToSt = [`(i32.const ${envLookup(env, stmt.name)}) ;; ${stmt.name}`];
@@ -113,6 +115,7 @@ export function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
       ]);
     case "return":
       console.log(stmt.value)
+      console.log(env);
       var valStmts = codeGenExpr(stmt.value, env);
       valStmts.push("return")
       return valStmts;
@@ -177,7 +180,7 @@ function codeGenExpr(expr: Expr, env: GlobalEnv): Array<string> {
       stmts = stmts.concat(["(i64." + expr.uniop.tag + ")"])
       return stmts.concat(["(i64.extend_i32_s)"])
     case "call":
-      console.log(expr.arguments)
+      
       var valStmts = codeGenExpr(expr.arguments[0], env)
       valStmts.push(`(call $${expr.name})`);
       return valStmts
