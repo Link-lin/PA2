@@ -6,7 +6,6 @@ export const TRUE = BigInt(1) << BigInt(32)
 export const FALSE = BigInt(2) << BigInt(32)
 export const NONE = BigInt(4) << BigInt(32)
 
-type LocalEnv = Map<string, number>;
 // Numbers are offsets into global memory
 export type GlobalEnv = {
   types: Map<string, string>
@@ -41,7 +40,6 @@ type CompileResult = {
   newEnv: GlobalEnv
 };
 
-var localEnv:LocalEnv = new Map()
 var isFunc = false
 
 export function compile(source: string, env: GlobalEnv): CompileResult {
@@ -63,13 +61,13 @@ export function compile(source: string, env: GlobalEnv): CompileResult {
   if (!cameBefore) throw new Error("Program should have var_def and func_def at top")
 
   // Function definition
-  const funcs : Array<string> = [];
+  const funcs: Array<string> = [];
   ast.forEach((stmt, i) => {
-    if(stmt.tag === "define") {isFunc = true; funcs.push(codeGen(stmt, withDefines).join("\n")); }
+    if (stmt.tag === "define") { isFunc = true; funcs.push(codeGen(stmt, withDefines).join("\n")); }
   });
   isFunc = false;
   const allFuns = funcs.join("\n\n");
-  const stmts = ast.filter((stmt) => stmt.tag !== "define"); 
+  const stmts = ast.filter((stmt) => stmt.tag !== "define");
   ast.forEach(s => {
     switch (s.tag) {
       case "init":
@@ -102,9 +100,15 @@ export function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
   console.log(env);
   switch (stmt.tag) {
     case "init":
-      const locationToSt = [`(i32.const ${envLookup(env, stmt.name)}) ;; ${stmt.name}`];
-      var valStmts = codeGenExpr(stmt.value, env);
-      return locationToSt.concat(valStmts).concat([`(i64.store)`]);
+      if (isFunc) {
+        var valStmts = codeGenExpr(stmt.value, env)
+        valStmts.push(`(local.set $${stmt.name})`)
+        return valStmts
+      } else {
+        const locationToSt = [`(i32.const ${envLookup(env, stmt.name)}) ;; ${stmt.name}`];
+        var valStmts = codeGenExpr(stmt.value, env);
+        return locationToSt.concat(valStmts).concat([`(i64.store)`]);
+      }
     case "assign":
       const locationToStore = [`(i32.const ${envLookup(env, stmt.name)}) ;; ${stmt.name}`];
       var valStmts = codeGenExpr(stmt.value, env);
@@ -123,11 +127,10 @@ export function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
     case "expr":
       console.log(stmt.expr);
       var exprStmts = codeGenExpr(stmt.expr, env);
-      if(isFunc) return exprStmts
+      // if (isFunc) return exprStmts
       return exprStmts.concat([`(local.set $$last)`]);
     case "define":
       const funcBody = stmt.body
-      const scratchVar: string = `(local $$last i64)`;
       // Check if init or func def came before all other
       var cameBefore = true
       var otherAppear = false
@@ -143,21 +146,32 @@ export function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
       if (!cameBefore) { throw new Error("var_def should preceed all stmts") }
 
       var params = stmt.parameters.map(p => `(param $${p.name} i64)`).join(" ");
+      const funcVarDecls : Array<string> = [];
+      funcVarDecls.push(`(local $$last i64)`);
+      // Initialize function var def
+      funcBody.forEach(stmt => { 
+        if(stmt.tag == "init"){
+          funcVarDecls.push(`(local $${stmt.name} i64)`); 
+        }
+      });
+
+      // Treat all local 
       // Generate stmts code for func
       var funcStmtsGroup = funcBody.map(stmt => codeGen(stmt, env))
       const funcStmts = [].concat([].concat.apply([], funcStmtsGroup));
-      return [`(func $${stmt.name} ${params} (result i64) ${funcStmts.join("\n")})`];
+      return [`(func $${stmt.name} ${params} (result i64) \n ${funcVarDecls.join("\n")} ${funcStmts.join("\n")})`];
   }
 }
 
 function codeGenExpr(expr: Expr, env: GlobalEnv): Array<string> {
   switch (expr.tag) {
     case "id":
-      if(env.globals.has(expr.name)){
+      if (env.globals.has(expr.name)) {
         return [`(i32.const ${envLookup(env, expr.name)})`, `(i64.load)`]
       }
-      else{
-        return [`(local.get $${expr.name})`]
+      else {
+        //Take care of local def 
+        return [`(local.get $${expr.name})`] // take cares of parameters
       }
     case "literal":
       const val = expr.value
@@ -196,7 +210,7 @@ function codeGenExpr(expr: Expr, env: GlobalEnv): Array<string> {
 function checkTypeOp(expr: Expr, op: Op | UniOp, posStr: string, gEnv: GlobalEnv) {
   const o = op.tag;
   if (expr.tag === "literal") {
-    console.log("CheckType: " + expr.value.tag +" "+op.tag)
+    console.log("CheckType: " + expr.value.tag + " " + op.tag)
     const v = expr.value.tag;
     switch (v) {
       case "None":
@@ -218,9 +232,9 @@ function checkTypeOp(expr: Expr, op: Op | UniOp, posStr: string, gEnv: GlobalEnv
         break;
     }
   }
-  else if(expr.tag === "id"){
+  else if (expr.tag === "id") {
     // right now can only check global defined var
-    if(gEnv.types.has(expr.name)){
+    if (gEnv.types.has(expr.name)) {
       switch (gEnv.types.get(expr.name)) {
         case "int":
           if (o === "eqz") {
@@ -232,7 +246,7 @@ function checkTypeOp(expr: Expr, op: Op | UniOp, posStr: string, gEnv: GlobalEnv
             throw new Error(`Operation ${o} operated on ${posStr} Boolean Value`)
           }
           break;
-      } 
+      }
     }
   }
 }

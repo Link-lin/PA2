@@ -168,6 +168,34 @@ describe('traverseBinop(c, s)', () => {
       op: { tag: "le_s" }
     })
   })
+  it('Call expression', () => {
+    const source = "foo(1,2) + fun(1,2)"
+    const cursor = parser.parse(source).cursor();
+    // go to statement
+    cursor.firstChild();
+    const parsedExpr = traverseStmt(cursor, source);
+    expect(parsedExpr).to.deep.equal({
+          "tag": "expr",
+          "expr": {
+            "expr1": {
+              "arguments": [
+                { "tag": "literal", "value": { "tag": "number", "type": { "tag": "int" }, "value": 1 }
+                }, { "tag": "literal", "value": { "tag": "number", "type": { "tag": "int" }, "value": 2 } } ],
+              "name": "foo",
+              "tag": "call"
+            },
+            "expr2": {
+              "arguments": [
+                { "tag": "literal", "value": { "tag": "number", "type": { "tag": "int" }, "value": 1 } },
+                { "tag": "literal", "value": { "tag": "number", "type": { "tag": "int" }, "value": 2 } } ],
+              "name": "fun",
+              "tag": "call"
+            },
+            "op": { "tag": "add" },
+             "tag": "binop"
+          }, 
+        })
+  })
 })
 /*
 describe('traverseExpr(c, s) function', () => {
@@ -365,27 +393,29 @@ describe('traverseStmt(c, s) function', () => {
     const parsedExpr = traverseStmt(cursor, source);
 
     expect(parsedExpr).to.deep.equal({
-          body: [
-            { name: "x",
-              tag: "assign",
-              value: {
-                expr1: { name: "x", tag: "id" },
-                expr2: { name: "y", tag: "id" },
-                op: { tag: "add" },
-                tag: "binop"
-              }
-            },
-            { tag: "return",
-              value: { name: "x", tag: "id" }
-            }
-         ],
-          name: "f",
-          parameters: [
-            { name: "x", type: { tag: "int" } },
-            { name: "y", type: { tag: "int" } }
-          ],
-          ret: null,
-          tag: "define"
+      body: [
+        {
+          name: "x",
+          tag: "assign",
+          value: {
+            expr1: { name: "x", tag: "id" },
+            expr2: { name: "y", tag: "id" },
+            op: { tag: "add" },
+            tag: "binop"
+          }
+        },
+        {
+          tag: "return",
+          value: { name: "x", tag: "id" }
+        }
+      ],
+      name: "f",
+      parameters: [
+        { name: "x", type: { tag: "int" } },
+        { name: "y", type: { tag: "int" } }
+      ],
+      ret: null,
+      tag: "define"
     })
   })
 
@@ -397,27 +427,29 @@ describe('traverseStmt(c, s) function', () => {
     // go to def
     const parsedExpr = traverseStmt(cursor, source);
     expect(parsedExpr).to.deep.equal({
-          body: [
-            { name: "x",
-              tag: "assign",
-              value: {
-                expr1: { name: "x", tag: "id" },
-                expr2: { name: "y", tag: "id" },
-                op: { tag: "add" },
-                tag: "binop"
-              }
-            },
-            { tag: "return",
-              value: { name: "x", tag: "id" }
-            }
-         ],
-          name: "f",
-          parameters: [
-            { name: "x", type: { tag: "int" } },
-            { name: "y", type: { tag: "int" } }
-          ],
-          ret: {tag:"bool"},
-          tag: "define"
+      body: [
+        {
+          name: "x",
+          tag: "assign",
+          value: {
+            expr1: { name: "x", tag: "id" },
+            expr2: { name: "y", tag: "id" },
+            op: { tag: "add" },
+            tag: "binop"
+          }
+        },
+        {
+          tag: "return",
+          value: { name: "x", tag: "id" }
+        }
+      ],
+      name: "f",
+      parameters: [
+        { name: "x", type: { tag: "int" } },
+        { name: "y", type: { tag: "int" } }
+      ],
+      ret: { tag: "bool" },
+      tag: "define"
     })
   })
 
@@ -431,19 +463,19 @@ describe('traverseStmt(c, s) function', () => {
     console.log(parsedExpr)
 
     expect(parsedExpr).to.deep.equal({
-          expr: {
-            arguments: [
-              { tag: "literal", value: { tag: "number", type: { tag: "int" }, value: 3 } }, 
-              { tag: "literal", value: { tag: "number", type: { tag: "int" }, value: 4 } }
-            ],
-            name: "foo",
-            tag: "call"
-          },
-         tag: "expr"
+      expr: {
+        arguments: [
+          { tag: "literal", value: { tag: "number", type: { tag: "int" }, value: 3 } },
+          { tag: "literal", value: { tag: "number", type: { tag: "int" }, value: 4 } }
+        ],
+        name: "foo",
+        tag: "call"
+      },
+      tag: "expr"
     });
   })
- 
-  
+
+
   /*
   it('parseing if statements', () => {
     // const source = "if true:\n  a=2\nelif:\n  a=3\n  a=4\nelse:\n  a=1"

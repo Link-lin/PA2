@@ -144,11 +144,17 @@ export function traverseExpr(c: TreeCursor, s: string): Expr {
     case "CallExpression":
       c.firstChild();
       const callName = s.substring(c.from, c.to);
-      c.nextSibling(); // go to arglist
-      c.firstChild(); // go into arglist
-      c.nextSibling(); // find single argument in arglist
-      const arg = traverseExpr(c, s);
-      c.nextSibling()
+      c.nextSibling(); // focus on arglist
+      c.firstChild(); //focus on (
+      var argList = []
+      while(c.nextSibling()){
+        if(s.substring(c.from, c.to)===","|| s.substring(c.from, c.to)===")") continue
+        var expr = traverseExpr(c, s); 
+        argList.push(expr)
+      }
+      c.parent() // pop arglist
+      c.parent() // expressionstmt
+      return {tag:"call", name: callName, arguments:argList}
     /*
     if (s.substring(c.from, c.to) !== ",") {
       c.parent(); // pop arglist
@@ -332,7 +338,8 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
             var expr = traverseExpr(c, s); 
             argList.push(expr)
           }
-
+          c.parent() // pop arglist
+          c.parent() // expressionstmt
           return {tag: "expr", expr:{tag:"call", name: callName, arguments:argList}}
         }
       }
