@@ -45,7 +45,7 @@ export function compile(source: string, env: GlobalEnv): CompileResult {
   const ast = parse(source);
   const definedVars = new Set();
   const withDefines = augmentEnv(env, ast);
-  console.log(withDefines);
+  const localEnv:LocalEnv = new Map();
   // Check if init or func def came before all other
   var cameBefore = true
   var otherAppear = false
@@ -74,14 +74,12 @@ export function compile(source: string, env: GlobalEnv): CompileResult {
         break;
     }
   });
-  //console.log(definedVars);
   const scratchVar: string = `(local $$last i64)`;
   const localDefines = [scratchVar];
   definedVars.forEach(v => {
     localDefines.push(`(local $${v} i64)`);
   })
 
-  console.log(withDefines);
   const commandGroups = stmts.map((stmt) => codeGen(stmt, withDefines));
   const commands = localDefines.concat([].concat.apply([], commandGroups));
   console.log("Generated: ", commands.join("\n"));
