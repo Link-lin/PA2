@@ -139,7 +139,7 @@ export function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
       const thenStmts = thenStmtsGroup.join("\n")
 
       //let s = [`(if (local.get $cond)\n (then\n ${thenStmts})`]
-      let s = [`(if (then\n ${thenStmts})`]
+      let s = [`(if (result i64) (then\n ${thenStmts})`]
       //console.log(stmt.els.length)
       if (stmt.els.length != 0) {
         const elseStmtsGroup = stmt.els.map(elstmt => codeGen(elstmt, env).join("\n"));
@@ -160,7 +160,7 @@ export function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
       return []
     case "expr":
       var exprStmts = codeGenExpr(stmt.expr, env);
-      // if (isFunc) return exprStmts
+      if (isFunc) return exprStmts
       return exprStmts.concat([`(local.set $$last)`]);
     case "while":
       var wCond = codeGenExpr(stmt.expr, env);
@@ -193,7 +193,7 @@ export function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
 
       var params = stmt.parameters.map(p => `(param $${p.name} i64)`).join(" ");
       const funcVarDecls: Array<string> = [];
-      funcVarDecls.push(`(local $$last i64)`);
+      //funcVarDecls.push(`(local $$last i64)`);
       // Initialize function var def
       funcBody.forEach(stmt => {
         if (stmt.tag == "init") {

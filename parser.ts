@@ -300,10 +300,8 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
       while (c.nextSibling()) {
         bodyStmt.push(traverseStmt(c, s));
       }
-
       c.parent();      // Pop to Body
       c.parent();      // Pop to FunctionDefinition
-      
       var ret: Type = { tag: "int" } // todo
       return {
         tag: "define",
