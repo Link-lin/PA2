@@ -1,24 +1,26 @@
-export type typeVar = { tag:"typeVar", name: string, type: Type}
+export type Program = 
+    {tag:"program", decls: Array<VarDef| FuncDef>, stmt: Array<Stmt>}
 
-export type Parameter = { name: string, type: Type } 
+export type VarDef = {tag: "varDef", var: TypedVar, lit: Literal}
+export type FuncDef = {tag: "funcDef", name: string, params: Array<TypedVar>, returnType: Type, body: FuncBody}
+export type FuncBody = { tag: "funcBody", localDecls: Array<VarDef | FuncDef>, stmts: Array<Stmt> }
+export type TypedVar = { tag:"typeVar", name: string, type: Type}
+
 export type Stmt =
     { tag: "assign", name: string, value: Expr }
-  | { tag: "define", name: string, parameters: Array<Parameter>, body: Array<Stmt>, ret: Type}
   | { tag: "if", cond: Expr, thn: Array<Stmt>, els: Array<Stmt>, elif: Array<Stmt>}
-  | { tag: "while", expr: Expr, stmts: Array<Stmt>}
-  | { tag: "pass"}
   | { tag: "return", value: Expr }
+  | { tag: "pass"}
   | { tag: "expr", expr: Expr }
-  | { tag: "print", value: Expr}
-  | { tag: "init", name: string, type: Type, value: Expr}
 
 export type Expr =
     { tag: "literal", value: Literal}
   | { tag: "id", name: string }
   | { tag: "uniop", expr: Expr, uniop: UniOp}
   | { tag: "binop", expr1: Expr, op: Op, expr2: Expr}
-  | { tag: "call", name: string, arguments: Array<Expr> }
   | { tag: "param", expr: Expr}
+  | { tag: "call", name: string, arguments: Array<Expr> }
+  | { tag: "print", value: Expr}
   | { tag: "return", value: Expr}
 
 export type Op = 
@@ -41,8 +43,8 @@ export type UniOp =
 
 export type Literal =
     { tag: "None" }
-  | { tag: "True", value: boolean, type: Type}
-  | { tag: "False", value: boolean, type: Type}
+  | { tag: "True", type: Type}
+  | { tag: "False", type: Type}
   | { tag: "number", value: number, type: Type}
 
 export type Type =
