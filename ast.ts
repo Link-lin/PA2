@@ -4,10 +4,10 @@ export type Program =
 export type VarDef = {tag: "varDef", var: TypedVar, lit: Literal}
 export type FuncDef = {tag: "funcDef", name: string, params: Array<TypedVar>, returnType: Type, body: FuncBody}
 export type FuncBody = { tag: "funcBody", localDecls: Array<VarDef | FuncDef>, stmts: Array<Stmt> }
-export type TypedVar = { tag:"typeVar", name: string, type: Type}
+export type TypedVar = { tag:"typedVar", name: string, type: Type}
 
 export type Stmt =
-    { tag: "assign", name: string, value: Expr }
+    { tag: "assign", name: string, expr: Expr }
   | { tag: "if", cond: Expr, thn: Array<Stmt>, els: Array<Stmt>, elif: Array<Stmt>}
   | { tag: "return", value: Expr }
   | { tag: "pass"}
@@ -45,9 +45,9 @@ export type Literal =
     { tag: "None" }
   | { tag: "True", type: Type}
   | { tag: "False", type: Type}
-  | { tag: "number", value: number, type: Type}
+  | { tag: "Number", value: number, type: Type}
 
-export type Type =
-    { tag: "int" }
-  | { tag: "bool" }
+export type Type = "int"| "bool" | name
+
+export type name = string
 
