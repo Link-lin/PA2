@@ -2,6 +2,62 @@ import { parser } from "lezer-python";
 import { TreeCursor } from "lezer-tree";
 import { Expr, Op, Stmt, Type, UniOp, FuncDef, TypedVar, FuncBody, VarDef, Literal } from "./ast";
 
+export function traverseliteral(c: TreeCursor, s: string): Literal{
+  switch(c.type.name){
+    case "Number":
+      const val = Number(s.substring(c.from, c.to));
+      return {tag:"Number", value: val, type:"int"}
+    case "boolean":
+      const b = s.substring(c.from, c.to);
+      if(b === "False"){
+        return {tag: "False", type:"bool"};
+      }
+      else if(b === "True"){
+        return {tag: "True", type:"bool"};
+      }
+    case "None":
+      return {tag:"None"}
+  }
+}
+
+// Currently does not ssupport arrays
+export function traverseTypedVar(c : TreeCursor, s: string) : TypedVar {
+  // assumes already inside "AssignStatement"
+  c.firstChild()
+  const name = s.substring(c.from, c.to);
+  c.nextSibling()   // goes to typeDef
+  c.firstChild()   // enter typedef
+  c.nextSibling()  // skips the :
+  const type = s.substring(c.from, c.to);
+  c.parent()   // escape back to typeDef
+  c.parent()  // back to assignstatement
+
+  return {tag: "typedVar", name, type}
+}
+
+export function traverseVarDef(c: TreeCursor, s: string): VarDef{
+   const typedVar = traverseTypedVar(c, s);
+   c.firstChild()  // into assign statement, to variable name
+   c.nextSibling()  // to typedef
+   c.nextSibling()  // to =
+   c.nextSibling()  // to literal
+   let literal =traverseLiteral(c, s)
+   c.parent()  // escape back to assignstatement
+   return { tag: "varDef", var:typedVar, lit: literal}
+}
+
+// Checks if an "assign statement" is a variable declaration or an assignment
+export function isDecl(c : TreeCursor) : boolean {
+  // assumes already at "assign statement"
+  c.firstChild()   // go to variable name
+  c.nextSibling()  // go to next node
+  let name = c.type.name
+  c.parent()  // escape back to "assign statement"
+  return (name == "TypeDef")
+}
+
+
+
 export function traverseBinop(c: TreeCursor, s: string): Op {
   //switch (s.substring(c.from, c.to)) {
   switch (s.substring(c.from, c.to)) {
@@ -63,6 +119,25 @@ export function traverseParameters(c: TreeCursor, s: string): Array<TypedVar> {
   c.parent();// exit paramList
   return paramList
 }
+
+export function traverseLiteral(c: TreeCursor, s: string): Literal{
+  switch(c.type.name){
+    case "Number":
+      const val = Number(s.substring(c.from, c.to));
+      return {tag:"Number", value: val, type:"int"}
+    case "Boolean":
+      const b = s.substring(c.from, c.to);
+      if(b === "False"){
+        return {tag: "False", type:"bool"};
+      }
+      else if(b === "True"){
+        return {tag: "True", type:"bool"};
+      }
+    case "None":
+      return {tag:"None"}
+  }
+}
+
 
 export function traverseExpr(c: TreeCursor, s: string): Expr {
   switch (c.type.name) {
@@ -258,59 +333,6 @@ export function traverseFuncBody(c: TreeCursor, s: string) : FuncBody{
     return {tag:"funcBody", localDecls: localDecl, stmts: stmtList};
 }
 
-// Currently does not ssupport arrays
-export function traverseTypedVar(c : TreeCursor, s: string) : TypedVar {
-  // assumes already inside "AssignStatement"
-  c.firstChild()
-  const name = s.substring(c.from, c.to);
-  c.nextSibling()   // goes to typeDef
-  c.firstChild()   // enter typedef
-  c.nextSibling()  // skips the :
-  const type = s.substring(c.from, c.to);
-  c.parent()   // escape back to typeDef
-  c.parent()  // back to assignstatement
-
-  return {tag: "typedVar", name, type}
-}
-
-export function traverseVarDef(c: TreeCursor, s: string): VarDef{
-   const typedVar = traverseTypedVar(c, s);
-   c.firstChild()  // into assign statement, to variable name
-   c.nextSibling()  // to typedef
-   c.nextSibling()  // to =
-   c.nextSibling()  // to literal
-   let literal =traverseLiteral(c, s)
-   c.parent()  // escape back to assignstatement
-   return { tag: "varDef", var:typedVar, lit: literal}
-}
-
-// Checks if an "assign statement" is a variable declaration or an assignment
-export function isDecl(c : TreeCursor) : boolean {
-  // assumes already at "assign statement"
-  c.firstChild()   // go to variable name
-  c.nextSibling()  // go to next node
-  let name = c.type.name
-  c.parent()  // escape back to "assign statement"
-  return (name == "TypeDef")
-}
-
-export function traverseLiteral(c: TreeCursor, s: string): Literal{
-  switch(c.type.name){
-    case "Number":
-      const val = Number(s.substring(c.from, c.to));
-      return {tag:"Number", value: val, type:"int"}
-    case "Boolean":
-      const b = s.substring(c.from, c.to);
-      if(b === "False"){
-        return {tag: "False", type:"bool"};
-      }
-      else if(b === "True"){
-        return {tag: "True", type:"bool"};
-      }
-    case "None":
-      return {tag:"None"}
-  }
-}
 
 export function traverseProgram(c: TreeCursor, s: string): Array<Stmt> {
   switch (c.node.type.name) {
@@ -333,10 +355,6 @@ export function traverseProgram(c: TreeCursor, s: string): Array<Stmt> {
       throw new Error("Could not parse program at " + c.node.from + " " + c.node.to);
   }
 }
-
-
-
-
 
 export function parse(source: string): Array<Stmt> {
   const t = parser.parse(source);
