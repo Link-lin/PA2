@@ -3,7 +3,7 @@ export type Program =
 
 export type ClassDef = {tag: "classDef", name: string, field: Value, classBody: Array<VarDef|MethodDef>}
 
-export type VarDef = {tag: "varDef", var: TypedVar, lit: Literal}
+export type VarDef = {tag: "varDef", var: TypedVar, lit: Value}
 export type TypedVar = { tag:"typedVar", name: string, type: Type}
 export type MethodDef= 
     {tag: "methodDef", name: string, self: Type, params: Array<TypedVar>, returnType: Type, body: MethodBody}
@@ -18,7 +18,7 @@ export type Stmt =
   | { tag: "expr", expr: Expr }
 
 export type Expr =
-    { tag: "literal", value: Literal}
+    { tag: "literal", value: Value}
   | { tag: "id", name: string }
   | { tag: "uniop", expr: Expr, uniop: UniOp}
   | { tag: "binop", expr1: Expr, op: Op, expr2: Expr}
@@ -46,13 +46,14 @@ export type UniOp =
     {tag: "eqz"} // not
   | {tag: "neg"}  // -
 
-export type Literal =
-    { tag: "None" }
-  | { tag: "True", type: Type}
-  | { tag: "False", type: Type}
-  | { tag: "Number", value: number, type: Type}
+export type Value =
+    { tag: "none" }
+  | { tag: "bool", value: boolean }
+  | { tag: "num", value: number }
+  | { tag: "object", name: string, address: number}
 
-export type Type = "int"| "bool" | name
-
-export type name = string
-
+export type Type =
+  | {tag: "number"}
+  | {tag: "bool"}
+  | {tag: "none"}
+  | {tag: "class", name: string}
