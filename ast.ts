@@ -24,6 +24,7 @@ export type Expr =
   | { tag: "binop", expr1: Expr, op: Op, expr2: Expr}
   | { tag: "param", expr: Expr}
   | { tag: "print", value: Expr}
+  | { tag: "memberExpr", expr: Expr, propertyName: string}
   | { tag: "construct", name: string}
   | { tag: "methodCall", expr: Expr, name: string, arguments: Array<Expr> }
   | { tag: "return", value: Expr}

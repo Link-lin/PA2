@@ -216,7 +216,7 @@ export function traverseClassBody(c: TreeCursor, s: string): Array<VarDef | Meth
       classbodyDefs.push(mDef);
     }
   } while (c.nextSibling());
-
+  c.parent();
   return classbodyDefs;
 }
 
@@ -231,9 +231,7 @@ export function traverseClassDef(c: TreeCursor, s: string): ClassDef {
 
   c.nextSibling(); // go to class body
   const classBody = traverseClassBody(c, s);
-
-  let tmpString = classBody;
-
+  c.parent();
   return {
     tag: "classDef",
     name: name,
@@ -243,10 +241,14 @@ export function traverseClassDef(c: TreeCursor, s: string): ClassDef {
 }
 
 export function traverseExpr(c: TreeCursor, s: string): Expr {
-  switch (c.type.name) {
+  switch (c.node.type.name) {
     case "Number":
     case "Boolean":
     case "None":
+      return {
+        tag: "literal",
+        value: traverseLiteral(c, s)
+      }
     case "VariableName":
       return {
         tag: "id",
@@ -271,7 +273,6 @@ export function traverseExpr(c: TreeCursor, s: string): Expr {
       c.nextSibling(); // go to snd expr
       const exp2 = traverseExpr(c, s);
       c.parent(); // pop binary expression
-      var tmp = s.substring(c.from, c.to);
       return {
         tag: "binop",
         expr1: exp1,
@@ -288,20 +289,70 @@ export function traverseExpr(c: TreeCursor, s: string): Expr {
         tag: "param",
         expr: paremExpr
       }
+    case "MemberExpression":
+      c.firstChild();
+      const memberExpr = traverseExpr(c,s);
+      c.nextSibling(); // Go to dot
+      c.nextSibling(); // Go to name
+      const propertyName = s.substring(c.from, c.to);
+      c.parent();
+      return {
+        tag: "memberExpr",
+        expr: memberExpr,
+        propertyName: propertyName
+      }
     case "CallExpression":
       c.firstChild();
-      const callName = s.substring(c.from, c.to);
-      c.nextSibling(); // focus on arglist
-      c.firstChild(); //focus on (
-      var argList = []
-      while (c.nextSibling()) {
-        if (s.substring(c.from, c.to) === "," || s.substring(c.from, c.to) === ")") continue
-        var expr = traverseExpr(c, s);
-        argList.push(expr)
+      console.log(c.type.name);
+      switch(c.type.name){
+        case "VariableName":
+          const callName = s.substring(c.from, c.to);
+          if(callName === "print"){
+            c.nextSibling();// go to argList
+            c.firstChild();// go to (
+            c.nextSibling(); // go to arg
+            const arg = traverseExpr(c, s);
+            c.parent(); // pop args 
+            c.parent(); // pop expression
+            console.log(s.substring(c.from, c.to));
+            return {tag:"print", value: arg}
+          }
+          else if(definedClasses.includes(callName)){
+            // Then this is a constructor
+            c.nextSibling(); // go to argList
+            c.firstChild(); // go to (
+            c.nextSibling(); // go to ）
+            if(s.substring(c.from, c.to) !== ")"){
+              throw new Error("Constructor of "+  callName +" expects zero arguments");
+            }
+            c.parent();
+            return {tag: "construct", name: callName} 
+          }else{
+            throw new Error("Unknown method call " + callName)
+          }
+        case "MemberExpression":
+          c.firstChild(); // Go to Member expr
+          const memExpr = traverseExpr(c, s);
+          c.nextSibling(); // go to dot
+          c.nextSibling(); // go to name
+          const name = s.substring(c.from, c.to);
+          c.parent(); // go back to call
+          c.nextSibling();// go to argList
+          
+          c.firstChild(); // go to (
+          
+          var argList = []
+          while (c.nextSibling()) {
+            if (s.substring(c.from, c.to) === "," || s.substring(c.from, c.to) === ")") continue
+            var expr = traverseExpr(c, s);
+            argList.push(expr)
+          }
+          c.parent();// pop Arglist
+          c.parent(); // Pop callExpression
+          return {tag:"methodCall", expr: memExpr, name: name, arguments: argList}
+        default:
+          throw new Error("Invalid method call at "  + c.from +" " + c.to )
       }
-      c.parent() // pop arglist
-      c.parent() // expressionstmt
-    //return { tag: "methodCall", name: callName, arguments: argList }
     default:
       throw new Error("Could not parse expr at " + c.from + " " + c.to + ": " + s.substring(c.from, c.to));
   }
