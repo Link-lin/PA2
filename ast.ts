@@ -1,5 +1,5 @@
 export type Program = 
-    {tag:"program", decls: Array<VarDef| MethodDef>, stmt: Array<Stmt>}
+    {tag:"program", decls: Array<VarDef| ClassDef>, stmts: Array<Stmt>}
 
 export type ClassDef = {tag: "classDef", name: string, field: Value, classBody: Array<VarDef|MethodDef>}
 

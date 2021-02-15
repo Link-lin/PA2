@@ -1,10 +1,10 @@
-import { TRUE, FALSE, NONE, codeGen } from './compiler';
 // This is a mashup of tutorials from:
 //
 // - https://github.com/AssemblyScript/wabt.js/
 // - https://developer.mozilla.org/en-US/docs/WebAssembly/Using_the_JavaScript_API
 
 import wabt from 'wabt';
+//import { TRUE, FALSE, NONE, codeGen } from './compiler_old';
 import * as compiler from './compiler';
 import {parse} from './parser';
 
@@ -29,7 +29,9 @@ export async function run(source : string, config: any) : Promise<[any, compiler
   const parsed = parse(source);
   var returnType = "";
   var returnExpr = "";
-  if(parsed[parsed.length - 1].tag === "expr") {
+  
+  const stmts = parsed.stmts;
+  if(stmts[stmts.length - 1].tag === "expr") {
     returnType = "(result i64)";
     returnExpr = "(local.get $$last)"
   }
@@ -56,9 +58,9 @@ export async function run(source : string, config: any) : Promise<[any, compiler
   var result = (wasmModule.instance.exports.exported_func as any)();
 
   // Handle Boolean value and None value
-  if(result === TRUE){ result ="True" } 
-  else if(result === NONE){ result = "None" }
-  else if(result === FALSE){ result = "false" }
+  //if(result === TRUE){ result ="True" } 
+  //else if(result === NONE){ result = "None" }
+  //else if(result === FALSE){ result = "false" }
 
   return [result, compiled.newEnv];
 }

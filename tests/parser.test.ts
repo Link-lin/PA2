@@ -1,12 +1,26 @@
 import * as mocha from 'mocha';
 import { expect } from 'chai';
 import { parser } from 'lezer-python';
-import { traverseExpr, traverseStmt, traverse, parse, traverseParameters } from '../parser';
+import { traverseProgram } from '../parser';
+//import { traverseExpr, traverseStmt, traverse, parse, traverseParameters } from '../parser';
 
 // We write tests for each function in parser.ts here. Each function gets its 
 // own describe statement. Each it statement represents a single test. You
 // should write enough unit tests for each function until you are confident
 // the parser works as expected. 
+describe('traverseProgram(c,s) function', () =>{
+
+  it('parse ClassDefinition', () => {
+    const source = "class Counter(object):\n    n: int = 0"
+
+    const cursor = parser.parse(source).cursor();
+
+    const parsedProgram = traverseProgram(cursor, source);
+
+    expect(parsedProgram).to.deep.equal({});
+  })
+})
+/*
 describe('traverseExpr(c,s) function', () => {
   it('parse a boolean', () => {
     const source = "True";
@@ -348,7 +362,6 @@ describe('traverseExpr(c, s) function', () => {
   })
 
 });
-*/
 
 describe('traverseStmt(c, s) function', () => {
   it('parsing typedef assign statement', () => {
@@ -554,11 +567,9 @@ describe('traverseStmt(c, s) function', () => {
       tag: "expr"
     })
   })
-  */
 
 });
 
-/*
 describe('traverse(c, s) function', () => {
 // TODO: add tests here to ensure traverse works as expected
 it('Assign with print', () => {

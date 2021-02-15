@@ -1,6 +1,7 @@
 import { Stmt, Expr, Op, UniOp } from "./ast";
 import { parse } from "./parser";
 
+/*
 // https://learnxinyminutes.com/docs/wasm/
 export const TRUE = BigInt(1) << BigInt(32)
 export const FALSE = BigInt(2) << BigInt(32)
@@ -13,6 +14,7 @@ export type GlobalEnv = {
   offset: number;
 }
 export const emptyEnv = { globals: new Map(), offset: 0 };
+
 
 export function augmentEnv(env: GlobalEnv, stmts: Array<Stmt>): GlobalEnv {
   const newEnv = new Map(env.globals);
@@ -259,7 +261,6 @@ function codeGenExpr(expr: Expr, env: GlobalEnv): Array<string> {
     var stmts = codeGenExpr(expr.expr, env);
     stmts = stmts.concat(["(i64." + expr.uniop.tag + ")"])
     return stmts.concat(["(i64.extend_i32_s)"])
-    */
     case "call":
       var valStmts: string[] = []
       expr.arguments.forEach(arg => valStmts.push(codeGenExpr(arg, env).join("\n")))
@@ -313,4 +314,32 @@ function checkTypeOp(expr: Expr, op: Op | UniOp, posStr: string, gEnv: GlobalEnv
       }
     }
   }
+}
+*/
+
+export const emptyEnv = { globals: new Map(), offset: 0 };
+
+type CompileResult = {
+  declFuncs: string,
+  wasmSource: string,
+  newEnv: GlobalEnv
+};
+
+// Numbers are offsets into global memory
+export type GlobalEnv = {
+  types: Map<string, string>
+  globals: Map<string, number>;
+  offset: number;
+}
+
+export function compile(source: string, env: GlobalEnv): CompileResult {
+  const ast = parse(source);
+  console.log(ast);
+  const definedVars = new Set();
+
+  return {
+    declFuncs: null,
+    wasmSource: null,
+    newEnv:null 
+  };
 }
