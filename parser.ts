@@ -301,7 +301,7 @@ export function traverseExpr(c: TreeCursor, s: string): Expr {
       }
       c.parent() // pop arglist
       c.parent() // expressionstmt
-      return { tag: "call", name: callName, arguments: argList }
+    //return { tag: "methodCall", name: callName, arguments: argList }
     default:
       throw new Error("Could not parse expr at " + c.from + " " + c.to + ": " + s.substring(c.from, c.to));
   }
@@ -312,62 +312,73 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
   switch (c.node.type.name) {
     case "AssignStatement":
       c.firstChild(); // go to name
-      const name = s.substring(c.from, c.to);
-      c.nextSibling(); // go to equals/body
-      c.nextSibling(); // go to value
-      const assignExpr = traverseExpr(c, s);
-      c.parent();
-      return {
-        tag: "assign",
-        name: name,
-        expr: assignExpr
+      switch (c.type.name) {
+        case "MemberExpression":
+          c.firstChild(); //  go to expr
+          const memExpr = traverseExpr(c,s);
+          c.nextSibling(); // go to dot
+          c.nextSibling(); // go to name
+          const propertyName = s.substring(c.from, c.to);
+          c.parent(); // pop memberExpr
+          c.nextSibling(); // go to equal sign
+          c.nextSibling(); // go to value
+          const memValue = traverseExpr(c,s);
+          c.parent();
+          console.log(s.substring(c.from, c.to));
+          return {
+            tag: "memberAssign",
+            expr1: memExpr,
+            propertyName: propertyName,
+            expr2: memValue,
+          }
+        case "VariableName":
+          const name = s.substring(c.from, c.to);
+          c.nextSibling(); // go to equals/ 
+          c.nextSibling(); // go to value
+          const assignExpr = traverseExpr(c, s);
+          c.parent();
+          return {
+            tag: "assign",
+            name: name,
+            expr: assignExpr
+          }
+        default:
+          throw new Error("unable to parse the assign statement");
       }
     case "IfStatement":
       c.firstChild(); //go to "if" 
       c.nextSibling(); // go to condition
       const cond = traverseExpr(c, s); // get the condition
-      c.nextSibling(); // go to body
-      c.firstChild(); // focus on :
-      var thnStmts: Stmt[] = [];
-      var elifStmts: Stmt[] = [];
       var elseStmts: Stmt[] = [];
-      while (c.nextSibling()) {
-        thnStmts.push(traverseStmt(c, s));
-      }
+      var thnStmts: Stmt[] = [];
+
+      c.nextSibling(); // go to body
+      c.firstChild(); // go to :
+      c.nextSibling();  // go to actual stmts
+      do {
+        const thnStmt = traverseStmt(c, s);
+        thnStmts.push(thnStmt);
+      } while (c.nextSibling())
+
       c.parent(); // pop body
-      c.parent(); // go back to if
-      //var tmp = s.substring(c.from, c.to)
-      // if there is elif or else
-      var hasElif = false;
-      if (s.substring(c.from, c.to) === "elif") {
-        hasElif = true
-        c.nextSibling(); // go to body
-        c.firstChild(); // focus on :
-        while (c.nextSibling()) {
-          elifStmts.push(traverseStmt(c, s));
-        }
+      if (c.nextSibling()) {
+        c.firstChild(); // go to else
+        c.nextSibling(); // go to else body
+        c.firstChild(); // go to :
+
+        c.nextSibling(); // go to else stmts
+        do {
+          const elseStmt = traverseStmt(c, s);
+          elseStmts.push(elseStmt);
+        } while (c.nextSibling())
+        c.parent(); // pop body
       }
-      var tmp = s.substring(c.from, c.to);
-      if (hasElif) {
-        c.parent()
-        c.nextSibling(); // focus on else()
-      }
-      if (s.substring(c.from, c.to) == "else") {
-        c.nextSibling(); // go to body
-        c.firstChild(); // focus on :
-        while (c.nextSibling()) {
-          elseStmts.push(traverseStmt(c, s));
-        }
-      }
-      c.parent() // pop up to body
-      c.parent() // pop to if
+      c.parent(); // pop back to ifStmt
       return {
         tag: "if",
-        //cond: {tag:"id", name: tmp},
         cond: cond,
         thn: thnStmts,
         els: elseStmts,
-        elif: elifStmts
       }
     case "PassStatement":
       return { tag: "pass" }
@@ -406,7 +417,7 @@ export function traverseProgram(c: TreeCursor, s: string): Program {
         } else if (isVarDecl(c)) {
           decls.push(traverseVarDef(c, s));
         } else {
-          // stmts.push(traverseStmt(c, s));
+          stmts.push(traverseStmt(c, s));
         }
       } while (c.nextSibling())
       console.log("traversed " + decls.length + " declarations", decls, "stopped at ", c.node);

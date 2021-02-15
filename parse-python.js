@@ -1,6 +1,7 @@
 const python = require('lezer-python');
 
-const input= "class Counter(object):\n    n: int = 0"
+//const input= "class Counter(object):\n    n: int = 0"
+const input= "a.b = c"
 
 const tree = python.parser.parse(input);
 

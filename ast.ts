@@ -11,8 +11,8 @@ export type MethodBody = { tag: "methodBody", localDecls: Array<VarDef>, stmts: 
 
 export type Stmt =
     { tag: "assign", name: string, expr: Expr }
-  | { tag: "classAssign", expr1: Expr, name: string, expr2: Expr }
-  | { tag: "if", cond: Expr, thn: Array<Stmt>, els: Array<Stmt>, elif: Array<Stmt>}
+  | { tag: "memberAssign", expr1: Expr, propertyName: string, expr2: Expr }
+  | { tag: "if", cond: Expr, thn: Array<Stmt>, els: Array<Stmt>}
   | { tag: "return", value: Expr }
   | { tag: "pass"}
   | { tag: "expr", expr: Expr }
