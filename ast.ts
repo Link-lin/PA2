@@ -1,13 +1,17 @@
 export type Program = 
-    {tag:"program", decls: Array<VarDef| FuncDef>, stmt: Array<Stmt>}
+    {tag:"program", decls: Array<VarDef| MethodDef>, stmt: Array<Stmt>}
+
+export type ClassDef = {tag: "classDef", name: string, field: Value, classBody: Array<VarDef|MethodDef>}
 
 export type VarDef = {tag: "varDef", var: TypedVar, lit: Literal}
-export type FuncDef = {tag: "funcDef", name: string, params: Array<TypedVar>, returnType: Type, body: FuncBody}
-export type FuncBody = { tag: "funcBody", localDecls: Array<VarDef | FuncDef>, stmts: Array<Stmt> }
 export type TypedVar = { tag:"typedVar", name: string, type: Type}
+export type MethodDef= 
+    {tag: "methodDef", name: string, self: Type, params: Array<TypedVar>, returnType: Type, body: MethodBody}
+export type MethodBody = { tag: "methodBody", localDecls: Array<VarDef>, stmts: Array<Stmt> }
 
 export type Stmt =
     { tag: "assign", name: string, expr: Expr }
+  | { tag: "classAssign", expr1: Expr, name: string, expr2: Expr }
   | { tag: "if", cond: Expr, thn: Array<Stmt>, els: Array<Stmt>, elif: Array<Stmt>}
   | { tag: "return", value: Expr }
   | { tag: "pass"}
@@ -19,8 +23,9 @@ export type Expr =
   | { tag: "uniop", expr: Expr, uniop: UniOp}
   | { tag: "binop", expr1: Expr, op: Op, expr2: Expr}
   | { tag: "param", expr: Expr}
-  | { tag: "call", name: string, arguments: Array<Expr> }
   | { tag: "print", value: Expr}
+  | { tag: "construct", name: string}
+  | { tag: "methodCall", expr: Expr, name: string, arguments: Array<Expr> }
   | { tag: "return", value: Expr}
 
 export type Op = 
