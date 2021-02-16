@@ -1,6 +1,7 @@
 import {run} from "./runner";
 import {emptyEnv, GlobalEnv} from "./compiler";
 import { Type } from "./ast";
+import { tcProgram } from "./tc";
 
 interface REPL {
   run(source : string) : Promise<any>;
@@ -25,8 +26,9 @@ export class BasicREPL {
   }
 
   async tc(source:string): Promise<Type>{
-    console.log(source);
-    return 
+    this.importObject.updateNameMap(this.currentEnv); // is this the right place for updating the object's env?
+    const result = await tcProgram(source, this.currentEnv);
+    return result;
   }
 
   async run(source : string) : Promise<any> {

@@ -72,7 +72,6 @@ export function isVarDecl(c: TreeCursor): boolean {
 }
 
 export function traverseTypes(c: TreeCursor, s: string): Type {
-  console.log("TraverseTypes " + s.substring(c.from, c.to));
   const type = s.substring(c.from, c.to);
   switch (type) {
     case "int":
@@ -172,7 +171,6 @@ export function traverseMethodDef(c: TreeCursor, s: string): MethodDef {
     c.parent(); // Exit self
   }
   c.nextSibling() // Go to next param if any
-  console.log(s.substring(c.from, c.to));
   var parameters: Array<TypedVar> = traverseParameters(c, s);
   c.parent(); // Exit paren
   c.nextSibling() // focus on body/ret type
@@ -197,20 +195,18 @@ export function traverseMethodDef(c: TreeCursor, s: string): MethodDef {
 }
 
 export function traverseClassBody(c: TreeCursor, s: string): Array<VarDef | MethodDef> {//Array<VarDef|MethodDef>{
-  c.firstChild(); // Go into classBody
-  c.nextSibling(); // go to :
-  c.nextSibling(); // go to first def in body
+  c.firstChild(); // go to :
+  c.nextSibling(); // go to first decl
 
   var classbodyDefs: Array<VarDef | MethodDef> = []
 
   do {
     if (isVarDecl(c)) {
-      console.log("Parsed Var Decl");
+      console.log(s.substring(c.from, c.to));
       let vardef = traverseVarDef(c, s);
       classbodyDefs.push(vardef);
     }
     else {
-      console.log("Parsed method Decl");
       let mDef = traverseMethodDef(c, s);
       classbodyDefs.push(mDef);
     }
@@ -223,24 +219,22 @@ export function traverseClassDef(c: TreeCursor, s: string): ClassDef {
   c.firstChild(); // Go into class Definition
   c.nextSibling(); // Go to className
   let name = s.substring(c.from, c.to);
-  console.log(name);
   definedClasses.push(name);
   c.nextSibling(); // go to class argList
   //TODO implement field
+  const field:Value = {tag:"object", name: s.substring(c.from, c.to), address:1}
   c.nextSibling(); // go to class body
   const classBody = traverseClassBody(c, s);
   c.parent(); // Pop class Body
-  console.log(s.substring(c.from, c.to));
   return {
     tag: "classDef",
     name: name,
-    field: null,
+    field: field,
     classBody: classBody
   }
 }
 
 export function traverseExpr(c: TreeCursor, s: string): Expr {
-  console.log(c.node.type.name);
   switch (c.node.type.name) {
     case "Number":
     case "Boolean":
@@ -309,7 +303,6 @@ export function traverseExpr(c: TreeCursor, s: string): Expr {
       }
     case "CallExpression":
       c.firstChild();
-      console.log(c.type.name);
       switch(c.type.name){
         case "VariableName":
           const callName = s.substring(c.from, c.to);
@@ -320,7 +313,6 @@ export function traverseExpr(c: TreeCursor, s: string): Expr {
             const arg = traverseExpr(c, s);
             c.parent(); // pop args 
             c.parent(); // pop expression
-            console.log(s.substring(c.from, c.to));
             return {tag:"print", value: arg}
           }
           else if(definedClasses.includes(callName)){
@@ -367,14 +359,12 @@ export function traverseExpr(c: TreeCursor, s: string): Expr {
 
 
 export function traverseStmt(c: TreeCursor, s: string): Stmt {
-  console.log(c.node.type.name);
   switch (c.node.type.name) {
     case "AssignStatement":
       c.firstChild(); // go to name
       switch (c.type.name) {
         case "MemberExpression":
           c.firstChild(); //  go to expr
-          console.log(s.substring(c.from, c.to));
           const memExpr = traverseExpr(c,s);
           c.nextSibling(); // go to dot
           c.nextSibling(); // go to name
@@ -384,7 +374,6 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
           c.nextSibling(); // go to value
           const memValue = traverseExpr(c,s);
           c.parent();
-          console.log(s.substring(c.from, c.to));
           return {
             tag: "memberAssign",
             expr1: memExpr,

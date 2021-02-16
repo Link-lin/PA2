@@ -35,25 +35,30 @@ export function tcLiteral(literal: Value, env: Map<string, Type>): Type {
 }
 
 export function tcExpression(expr: Expr, env: Map<string, Type>, className: string): Type {
-    switch(expr.tag){
+    console.log(expr);
+    switch (expr.tag) {
         case "literal":
             return tcLiteral(expr.value, env);
         case "id":
-            if(env.has(expr.name)){
-                console.log("typechecked local var/param " + expr.name);
+            // When this is self return className
+            if (expr.name === "self") {
+                return { tag: "class", name: className };
+            }
+            if (env.has(expr.name)) {
+                // console.log("typechecked local var/param " + expr.name);
                 return env.get(expr.name);
-              }
+            }
             throw new Error("Not a variable: " + expr.name);
         case "uniop":
             var uniExprType = tcExpression(expr.expr, env, className);
-            switch(expr.uniop.tag){
+            switch (expr.uniop.tag) {
                 case "eqz":
-                    if(uniExprType.tag === "bool"){
+                    if (uniExprType.tag === "bool") {
                         return uniExprType
                     }
                     throw new Error("Cannot apply operator not on type" + uniExprType);
                 case "neg":
-                    if(uniExprType.tag === "number"){
+                    if (uniExprType.tag === "number") {
                         return uniExprType
                     }
                     throw new Error("Cannot apply operator - on type" + uniExprType);
@@ -62,116 +67,127 @@ export function tcExpression(expr: Expr, env: Map<string, Type>, className: stri
             const ltype = tcExpression(expr.expr1, env, className);
             const rtype = tcExpression(expr.expr2, env, className);
 
-            switch(expr.op.tag){
+            switch (expr.op.tag) {
                 case "add":
                 case "sub":
                 case "mul":
                 case "div_s":
                 case "rem_s":
-                  if(ltype.tag === "number" && rtype.tag === "number"){
-                    return { tag: "number" };
-                  }
-                  throw new Error("Cannot apply operator " + expr.op + " on types " + ltype.tag + " and " + rtype.tag);
+                    if (ltype.tag === "number" && rtype.tag === "number") {
+                        return { tag: "number" };
+                    }
+                    throw new Error("Cannot apply operator " + expr.op.tag + " on types " + ltype.tag + " and " + rtype.tag);
                 case "eq":
                 case "ne":
-                  if(ltype.tag === rtype.tag){
-                    return { tag: "bool" };
-                  }
-                  throw new Error("Cannot apply operator " + expr.op + " on types " + ltype.tag + " and " + rtype.tag);
+                    if (ltype.tag === rtype.tag) {
+                        return { tag: "bool" };
+                    }
+                    throw new Error("Cannot apply operator " + expr.op.tag + " on types " + ltype.tag + " and " + rtype.tag);
                 case "le_s":
                 case "ge_s":
                 case "lt_s":
                 case "gt_s":
-                  if(ltype.tag === "number" && rtype.tag === "number"){
-                    return { tag: "bool" };
-                  }
-        
-                  throw new Error("Cannot apply operator " + expr.op+ " on types " + ltype.tag + " and " + rtype.tag);
-        
+                    if (ltype.tag === "number" && rtype.tag === "number") {
+                        return { tag: "bool" };
+                    }
+
+                    throw new Error("Cannot apply operator " + expr.op.tag + " on types " + ltype.tag + " and " + rtype.tag);
+
                 case "is":
-                  if(ltype.tag === "none" && rtype.tag === "none"){
-                    return { tag: "bool" };
-                  }  
-                  if(ltype.tag === "class"){
-                      if(rtype.tag === "class"){
-                          return {tag: "bool"};
-                      }
-                  }
-                  throw new Error("Cannot apply operator " + expr.op + " on types " + ltype.tag + " and " + rtype.tag); //this isn't very interesting since we don't have objects or None
-               }
+                    if (ltype.tag === "none" && rtype.tag === "none") {
+                        return { tag: "bool" };
+                    }
+                    if (ltype.tag === "class") {
+                        if (rtype.tag === "class") {
+                            return { tag: "bool" };
+                        }
+                    }
+                    throw new Error("Cannot apply operator " + expr.op.tag + " on types " + ltype.tag + " and " + rtype.tag); //this isn't very interesting since we don't have objects or None
+            }
         case "construct":
-            if (!classes.has(expr.name)){
+            if (!classes.has(expr.name)) {
                 throw new Error("Unable to construct a object" + expr.name);
             }
-            return {tag:"class", name: className};
+            return { tag: "class", name: expr.name};
         case "print":
             const printExprType = tcExpression(expr.value, env, className);
             return printExprType
         case "memberExpr":
             const memExprType = tcExpression(expr.expr, env, className);
-            if(memExprType.tag !== "class"){
-                throw new Error("Cannot find propety on non class variable");
+            if (memExprType.tag !== "class") {
+                throw new Error("Cannot find property on non class variable");
             }
-            else{
-                if(classes.has(memExprType.name)){
+            else {
+                if (classes.has(memExprType.name)) {
                     const classtypes = classes.get(memExprType.name);
                     const propetyType = classtypes.vars.get(expr.propertyName);
-                    if(propetyType == null){
+                    if (propetyType == null) {
                         throw new Error("Cannot find filed " + expr.propertyName + " in " + memExprType.name);
                     }
                     return propetyType
                 }
-                else{
+                else {
                     throw new Error("Cannot find name of " + memExprType.name);
                 }
             }
         case "methodCall":
             const methodCallType = tcExpression(expr.expr, env, className);
             var classtypes = null;
-            if(methodCallType.tag !== "class"){
-                throw new Error("Cannot find propety on non class variable");
+            if (methodCallType.tag !== "class") {
+                throw new Error("Cannot find property on non class variable");
             }
-            else{
-                if(classes.has(methodCallType.name)){
+            else {
+                if (classes.has(methodCallType.name)) {
                     classtypes = classes.get(methodCallType.name);
-                    const method= classtypes.method.get(expr.name);
-                    if(method == null){
+                    const method = classtypes.method.get(expr.name);
+                    if (method == null) {
                         throw new Error("Cannot find filed " + expr.name + " in " + methodCallType.name);
                     }
                 }
-                else{
+                else {
                     throw new Error("Cannot find name of " + methodCallType.name);
                 }
             }
 
             let methodTypes = classtypes.method.get(expr.name);
-            if (methodTypes.paramTypes.size !== expr.arguments.length){
-                throw new Error("Invalid argument number on method call " + expr.name);
+            if (methodTypes.paramTypes.size !== expr.arguments.length) {
+                throw new Error("Incorrect argument number on method call " + expr.name);
             }
-            // TODO check param Types
+            return methodCallType
+        // TODO check param Types
     }
 }
 
 export function tcStatements(stmt: Stmt, env: Map<string, Type>, expectReturn: Type, className: string, isLast: boolean): Type {
-   if(isLast){
+    console.log(stmt);
+    if (isLast) {
         const t = tcStatements(stmt, env, expectReturn, className, false);
+        if (expectReturn == null) return t
         // TO DO class type check differently
-        if(t.tag != expectReturn.tag){
+        console.log(t);
+        console.log(expectReturn);
+        if (t.tag != expectReturn.tag) {
             throw new Error("Return type does not match actual return type");
         }
-   }
-   switch (stmt.tag) {
+    }
+    switch (stmt.tag) {
         case "assign":
             var exprType = tcExpression(stmt.expr, env, className);
-            if (exprType.tag !== "class") {
-                if (exprType.tag != env.get(stmt.name).tag) {
-                    throw new Error("Expected type " + env.get(stmt.name).tag + "; got type " + exprType.tag);
+            // console.log(exprType);
+            var leftType = env.get(stmt.name);
+            if (leftType.tag === "class") {
+                if (exprType.tag === "number" || exprType.tag === "bool") {
+                    throw new Error("Expected type " + leftType.name + "; got type " + exprType.tag);
+                }
+                if (exprType.tag === "class") {
+                    if (exprType.name !== leftType.name) {
+                        throw new Error("Expected type " + leftType.name + "; got type " + exprType.name);
+                    }
                 }
             }
-            else{
-                const className = (env.get(stmt.name) as any).name();
-                if (exprType.name !== className) {
-                    throw new Error("Expected type " + className + "; got type " + exprType.tag);
+            else {
+                if (leftType.tag !== exprType.tag) {
+                    throw new Error("Expected type " + leftType.tag + "; got type " + exprType.tag);
                 }
             }
             return { tag: "none" }
@@ -200,6 +216,7 @@ export function tcStatements(stmt: Stmt, env: Map<string, Type>, expectReturn: T
                 }
 
                 var returnType = tcExpression(stmt.value, env, className);
+                console.log([stmt, returnType]);
                 if (returnType.tag === expectReturn.tag) {
                     return returnType;
                 } else {
@@ -217,25 +234,32 @@ export function tcStatements(stmt: Stmt, env: Map<string, Type>, expectReturn: T
             }
             else {
                 const classEnv = classes.get(callFrom.name);
+                //console.log(classEnv);
                 if (!classEnv.vars.has(stmt.propertyName)) {
-                    throw new Error("Cannot find property of name " + stmt.propertyName + " in class" + callFrom.name)
+                    throw new Error("Cannot find property of name " + stmt.propertyName + " in class " + callFrom.name)
                 }
                 else {
                     const exprType = tcExpression(stmt.expr2, env, className);
                     const leftType = classEnv.vars.get(stmt.propertyName)
-                    if (leftType.tag !== "class"){
-                        if(leftType.tag !== exprType.tag){
-                            throw new Error("Expected type " + leftType.tag + "; got type " + exprType.tag);
+                    console.log(leftType);
+                    if (leftType.tag === "class") {
+                        if (exprType.tag === "number" || exprType.tag === "bool") {
+                            throw new Error("Expected type " + leftType.name + "; got type " + exprType.tag);
+                        }
+                        if (exprType.tag === "class") {
+                            if (exprType.name !== leftType.name) {
+                                throw new Error("Expected type " + leftType.name + "; got type " + exprType.name);
+                            }
                         }
                     }
-                    else{
-                        const rightClassName = (exprType as any).name();
-                        if(leftType.name !== rightClassName){
-                            throw new Error("Expected type " + leftType.name + "; got type " + rightClassName);
+                    else {
+                        if (leftType.tag !== exprType.tag) {
+                            throw new Error("Expected type " + leftType.tag + "; got type " + exprType.tag);
                         }
                     }
                 }
             }
+            return {tag:"none"};
     }
 }
 
@@ -243,13 +267,19 @@ export function tcDeclarations(def: VarDef | ClassDef, env: Map<string, Type>): 
     switch (def.tag) {
         case "varDef":
             var valueType = tcLiteral(def.lit, env);
-            if (valueType.tag !== "class") {
-                if (valueType.tag !== def.var.type.tag) {
-                    throw new Error("Expected type " + def.var.type.tag + "; got type " + valueType.tag);
+            if (def.var.type.tag === "class") {
+                if (valueType.tag === "number" || valueType.tag === "bool") {
+                    throw new Error("Expected type " + def.var.type.name + "; got type " + valueType.tag);
+                }
+                if (valueType.tag === "class") {
+                    if (def.var.type.name !== valueType.name) {
+                        throw new Error("Expected type " + def.var.type.name + "; got type " + valueType.name);
+
+                    }
                 }
             }
             else {
-                if (valueType.name !== def.var.name) {
+                if (valueType.tag !== def.var.type.tag) {
                     throw new Error("Expected type " + def.var.type.tag + "; got type " + valueType.tag);
                 }
             }
@@ -269,25 +299,30 @@ export function tcDeclarations(def: VarDef | ClassDef, env: Map<string, Type>): 
 export function tcClassBody(def: VarDef | MethodDef, env: Map<string, Type>, className: string): Type {
     switch (def.tag) {
         case "varDef":
-            var valueType = tcLiteral(def.lit, env);
-            if (valueType.tag !== "class") {
-                if (valueType.tag !== def.var.type.tag) {
-                    throw new Error("Expected type " + def.var.type.tag + "; got type " + valueType.tag);
+            var exprType = tcLiteral(def.lit, env);
+            var leftType = def.var.type;
+            if (leftType.tag === "class") {
+                if (exprType.tag === "number" || exprType.tag === "bool") {
+                    throw new Error("Expected type " + leftType.name + "; got type " + exprType.tag);
+                }
+                if (exprType.tag === "class") {
+                    if (exprType.name !== leftType.name) {
+                        throw new Error("Expected type " + leftType.name + "; got type " + exprType.name);
+                    }
                 }
             }
             else {
-                if (valueType.name !== def.var.name) {
-                    throw new Error("Expected type " + def.var.type.tag + "; got type " + valueType.tag);
+                if (leftType.tag !== exprType.tag) {
+                    throw new Error("Expected type " + leftType.tag + "; got type " + exprType.tag);
                 }
             }
             env.set(def.var.name, def.var.type);
             return { tag: "none" };
         case "methodDef":
+            //console.log(def)
             const classType = classes.get(className);
             const methodName = def.name;
-            if (classType.method.has(def.name)) {
-                throw new Error("Method with this name " + def.name + " is already defined in this class");
-            }
+
             // Check method local Decls
             def.body.localDecls.forEach(decl => {
                 if (classType.method.get(methodName).methodVarsTypes.has(decl.var.name)) {
@@ -299,11 +334,11 @@ export function tcClassBody(def: VarDef | MethodDef, env: Map<string, Type>, cla
 
             for (var i = 0; i < def.body.stmts.length; i++) {
                 var stmt = def.body.stmts[i];
-                if (i = def.body.stmts.length - 1) {
+                if (i === def.body.stmts.length - 1) {
                     tcStatements(stmt, env, def.returnType, className, true);
                 }
                 else {
-                    tcStatements(stmt, env, def.returnType, className, true);
+                    tcStatements(stmt, env, def.returnType, className, false);
                 }
             }
     }
@@ -311,9 +346,9 @@ export function tcClassBody(def: VarDef | MethodDef, env: Map<string, Type>, cla
     return { tag: "none" };
 }
 
-export function tcProgram(source: string, oldEnv: GlobalEnv): Type {
+export async function tcProgram(source: string, oldEnv: GlobalEnv): Promise<Type> {
     console.log(oldEnv);
-    var result: Type = null;
+    var result: Type = { tag: "none" };
     const program = parse(source);
 
     var env = new Map<string, Type>(oldEnv.types);
@@ -346,8 +381,8 @@ export function tcProgram(source: string, oldEnv: GlobalEnv): Type {
                     method: new Map<string, methodTypes>()
                 }
 
-                for (var i = 0; i < def.classBody.length; i++) {
-                    var c: VarDef | MethodDef = def.classBody[i];
+                for (var j = 0; j < def.classBody.length; j++) {
+                    var c: VarDef | MethodDef = def.classBody[j];
                     switch (c.tag) {
                         case "varDef":
                             ctypes.vars.set(c.var.name, c.var.type);
@@ -382,7 +417,7 @@ export function tcProgram(source: string, oldEnv: GlobalEnv): Type {
     }
 
     for (var i = 0; i < program.stmts.length; i++) {
-        if (i = program.stmts.length - 1) {
+        if (i === program.stmts.length - 1) {
             result = tcStatements(program.stmts[i], env, null, null, true);
             break;
         }
