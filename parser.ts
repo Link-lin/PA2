@@ -447,9 +447,13 @@ export function traverseStmt(c: TreeCursor, s: string): Stmt {
       var returnVal;
       if (c.nextSibling()) {// Focus expression (there may be no stmt)
         returnVal = traverseExpr(c, s);
+        c.parent();
+        return { tag: "return", value: returnVal };
       }
-      c.parent();
-      return { tag: "return", value: returnVal };
+      else{
+        c.parent();
+        return {tag: "return"}
+      }
     case "ExpressionStatement":
       c.firstChild();
       const expr = traverseExpr(c, s);

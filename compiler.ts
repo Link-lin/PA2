@@ -1,4 +1,4 @@
-import { Stmt, Expr, Op, UniOp } from "./ast";
+import { Stmt, Expr, Op, UniOp, Type, Value } from "./ast";
 import { parse } from "./parser";
 
 /*
@@ -327,7 +327,7 @@ type CompileResult = {
 
 // Numbers are offsets into global memory
 export type GlobalEnv = {
-  types: Map<string, string>
+  types: Map<string, Type>
   globals: Map<string, number>;
   offset: number;
 }

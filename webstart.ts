@@ -76,6 +76,14 @@ function webStart() {
       repl.run(source.value).then((r) => {renderResult(r); console.log ("run finished") })
           .catch((e) => { renderError(e); console.log("run failed", e) });;
     });
+
+    document.getElementById("tc").addEventListener("click", function(e){
+      repl = new BasicREPL(importObject);
+      const source = document.getElementById("user-code") as HTMLTextAreaElement;
+      setupRepl();
+      repl.tc(source.value).then((r) => {renderResult(r); console.log("typeCheck finished")})
+        .catch((e) => {renderError(e); console.log("type check failed", e)})
+  })
   });
 }
 

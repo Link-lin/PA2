@@ -3,23 +3,23 @@ export type Program =
 
 export type ClassDef = {tag: "classDef", name: string, field: Value, classBody: Array<VarDef|MethodDef>}
 
-export type VarDef = {tag: "varDef", var: TypedVar, lit: Value}
+export type VarDef = {tag: "varDef", var: TypedVar, lit: Value, isGlobal?: boolean}
 export type TypedVar = { tag:"typedVar", name: string, type: Type}
 export type MethodDef= 
     {tag: "methodDef", name: string, self: Type, params: Array<TypedVar>, returnType: Type, body: MethodBody}
 export type MethodBody = { tag: "methodBody", localDecls: Array<VarDef>, stmts: Array<Stmt> }
 
 export type Stmt =
-    { tag: "assign", name: string, expr: Expr }
+    { tag: "assign", name: string, expr: Expr , isGlobal?: boolean}
   | { tag: "memberAssign", expr1: Expr, propertyName: string, expr2: Expr }
   | { tag: "if", cond: Expr, thn: Array<Stmt>, els: Array<Stmt>}
-  | { tag: "return", value: Expr }
+  | { tag: "return", value?: Expr }
   | { tag: "pass"}
   | { tag: "expr", expr: Expr }
 
 export type Expr =
     { tag: "literal", value: Value}
-  | { tag: "id", name: string }
+  | { tag: "id", name: string, isGlobal?: boolean}
   | { tag: "uniop", expr: Expr, uniop: UniOp}
   | { tag: "binop", expr1: Expr, op: Op, expr2: Expr}
   | { tag: "param", expr: Expr}
