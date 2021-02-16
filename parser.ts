@@ -1,6 +1,5 @@
 import { parser } from "lezer-python";
 import { Tree, TreeCursor } from "lezer-tree";
-import { isWhiteSpaceLike } from "typescript";
 import { Expr, Op, Stmt, ClassDef, Type, UniOp, TypedVar, VarDef, Value, Program, MethodBody, MethodDef } from "./ast";
 
 let definedClasses: string[] = []
@@ -10,7 +9,7 @@ export function traverseLiteral(c: TreeCursor, s: string): Value {
     case "Number":
       const val = Number(s.substring(c.from, c.to));
       return { tag: "num", value: val }
-    case "boolean":
+    case "Boolean":
       const b = s.substring(c.from, c.to);
       if (b === "False") {
         return { tag: "bool", value: false }
@@ -228,10 +227,10 @@ export function traverseClassDef(c: TreeCursor, s: string): ClassDef {
   definedClasses.push(name);
   c.nextSibling(); // go to class argList
   //TODO implement field
-
   c.nextSibling(); // go to class body
   const classBody = traverseClassBody(c, s);
-  c.parent();
+  c.parent(); // Pop class Body
+  console.log(s.substring(c.from, c.to));
   return {
     tag: "classDef",
     name: name,
@@ -241,6 +240,7 @@ export function traverseClassDef(c: TreeCursor, s: string): ClassDef {
 }
 
 export function traverseExpr(c: TreeCursor, s: string): Expr {
+  console.log(c.node.type.name);
   switch (c.node.type.name) {
     case "Number":
     case "Boolean":
@@ -254,6 +254,12 @@ export function traverseExpr(c: TreeCursor, s: string): Expr {
         tag: "id",
         name: s.substring(c.from, c.to)
       };
+    // TODO self may need 
+    case "self":
+      return {
+        tag: "id",
+        name: s.substring(c.from, c.to)
+      }
     case "UnaryExpression":
       c.firstChild();
       const uniop = traverseUniop(c, s);
@@ -326,6 +332,7 @@ export function traverseExpr(c: TreeCursor, s: string): Expr {
               throw new Error("Constructor of "+  callName +" expects zero arguments");
             }
             c.parent();
+            c.parent(); // pop expression
             return {tag: "construct", name: callName} 
           }else{
             throw new Error("Unknown method call " + callName)
@@ -360,12 +367,14 @@ export function traverseExpr(c: TreeCursor, s: string): Expr {
 
 
 export function traverseStmt(c: TreeCursor, s: string): Stmt {
+  console.log(c.node.type.name);
   switch (c.node.type.name) {
     case "AssignStatement":
       c.firstChild(); // go to name
       switch (c.type.name) {
         case "MemberExpression":
           c.firstChild(); //  go to expr
+          console.log(s.substring(c.from, c.to));
           const memExpr = traverseExpr(c,s);
           c.nextSibling(); // go to dot
           c.nextSibling(); // go to name
@@ -464,7 +473,6 @@ export function traverseProgram(c: TreeCursor, s: string): Program {
       do {
         if (c.type.name === "ClassDefinition") {
           decls.push(traverseClassDef(c, s));
-          //decls.push(traverseFuncDef(c,s));
         } else if (isVarDecl(c)) {
           decls.push(traverseVarDef(c, s));
         } else {

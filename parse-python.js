@@ -1,15 +1,23 @@
 const python = require('lezer-python');
 
 //const input= "class Counter(object):\n    n: int = 0"
-const input= "Counter.sub()"
+const input= "a"
 
 const tree = python.parser.parse(input);
 
 const cursor = tree.cursor();
 
-do {
-//  console.log(cursor.node);
-  console.log(cursor.node.type.name);
-  console.log(input.substring(cursor.node.from, cursor.node.to));
-} while(cursor.next());
+function vizTree(cursor, s, depth) {
+  console.log (Array(depth + 1).join(" ") + `> [${cursor.node.type.name}]: '${s.substring(cursor.from, cursor.to)}'`)
+  if (!cursor.firstChild()) {
+      return;
+  }
+  do {
+      vizTree(cursor, s, depth * 2 + 1);
+  } while (cursor.nextSibling());
+
+  cursor.parent();
+}
+
+vizTree(cursor, input, 0);
 
