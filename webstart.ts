@@ -8,17 +8,48 @@ function webStart() {
 
     var importObject = {
       imports: {
-        imported_func: (arg : any) => {
-          console.log("Logging from WASM: ", arg);
-          const elt = document.createElement("pre");
-          document.getElementById("output").appendChild(elt);
-          elt.innerText = arg;
-        },
         print_global_func: (pos: number, value: number) => {
           var name = importObject.nameMap[pos];
           var msg = name + " = " + value;
           renderResult(msg);
+        },
+        printInt: (arg : any) => {
+          console.log("Logging from WASM: ", arg);
+          const elt = document.createElement("pre");
+          document.getElementById("output").appendChild(elt);
+          elt.innerText = arg;
+          return 0;
+        },
+        printNone: (arg : any) => {
+          console.log("Logging from WASM: ", arg);
+          const elt = document.createElement("pre");
+          document.getElementById("output").appendChild(elt);
+          elt.innerText = "None";
+          return 0;
+        },
+        printBool: (arg : number) => {
+          var bool = "False";
+          if(arg != 0){
+            bool = "True";
+          }
+          console.log("Logging from WASM: ", bool);        
+          const elt = document.createElement("pre");
+          document.getElementById("output").appendChild(elt);
+          elt.innerText = bool;
+          return 0;
+        },
+        printOther: (arg : any) => {
+          throw new Error("Provided invalid arg to print");
+          return 0;
+        },
+        printClass: (arg: any) => {
+          console.log("Logging from WASM: ", arg);
+          const elt = document.createElement("pre");
+          document.getElementById("output").appendChild(elt);
+          elt.innerText = arg;
+          return 0;
         }
+
       },
     
       nameMap: new Array<string>(),
@@ -64,7 +95,7 @@ function webStart() {
           const source = replCodeElement.value;
           elt.value = source;
           replCodeElement.value = "";
-          repl.run(source).then((r) => { renderResult(r); console.log ("run finished") })
+          repl.run(source).then((r) => {console.log ("run finished") })
               .catch((e) => { renderError(e); console.log("run failed", e) });;
         }
       });
@@ -73,7 +104,7 @@ function webStart() {
       repl = new BasicREPL(importObject);
       const source = document.getElementById("user-code") as HTMLTextAreaElement;
       setupRepl();
-      repl.run(source.value).then((r) => {renderResult(r); console.log ("run finished") })
+      repl.run(source.value).then((r) => {console.log ("run finished") })
           .catch((e) => { renderError(e); console.log("run failed", e) });;
     });
 

@@ -1,13 +1,11 @@
-import { GlobalEnv } from './compiler';
-import { methodTypes } from './tc';
-import { Stmt, Expr, Op, UniOp, Type, Value, ClassDef, VarDef, MethodDef, MethodBody, TypedVar } from "./ast";
+import { methodTypes, tcExpression, tcLiteral, tcStatements, program, tcProgram } from './tc';
+import { Stmt, Expr, Op, UniOp, Type, Value, ClassDef, VarDef, MethodDef, MethodBody, TypedVar, Program } from "./ast";
 import { parse } from "./parser";
 
 
 export const emptyEnv = { globals: new Map(), offset: 0 };
 
 type CompileResult = {
-  declFuncs: string,
   wasmSource: string,
   newEnv: GlobalEnv
 };
@@ -97,10 +95,10 @@ function calculateClassSize(body: Array<VarDef | MethodDef>, classSize: Map<stri
   body.forEach(decl => {
     if (decl.tag === "varDef") {
       // don't have class varibale inside class with this difinition
-      if(decl.var.type.tag === "class"){ 
+      if (decl.var.type.tag === "class") {
         bodySize += calculateClassVaiableSize(decl.var.type, classSize);
       }
-      else{
+      else {
         bodySize += 1
       }
     }
@@ -115,17 +113,14 @@ function calculateClassVaiableSize(type: Type, classSize: Map<string, number>) {
   }
 }
 
-function getVarLocationInBody(typedVar: TypedVar, className: string, env: GlobalEnv){
-
-  const vars:TypedVar[] = classDefinition.get(className);
-
+function getVarLocationInBody(typedVar: TypedVar, className: string, env: GlobalEnv) {
+  const vars: TypedVar[] = classDefinition.get(className);
   var index = 0
-
   vars.forEach(v => {
-    if(v.name === typedVar.name && v.type.tag === typedVar.type.tag){
+    if (v.name === typedVar.name && v.type.tag === typedVar.type.tag) {
       return index;
     }
-    else{
+    else {
       calculateClassVaiableSize(v.type, env.classSize);
     }
   })
@@ -150,13 +145,13 @@ export function codeGenDef(def: VarDef | ClassDef, env: GlobalEnv, className: st
         }
         else {
           // if the varDef is a class
-          if(def.lit.tag === "none"){
+          if (def.lit.tag === "none") {
             varDefStmts.push(`(i32.const ${envLookup(env, def.var.name)}) ;; ${def.var.name}`);
             varDefStmts.push("(i32.const " + reprLiteral(def.lit, env) + ")");
             varDefStmts.push("(i32.store)");
           }
-          else{
-            if(def.lit.tag === "object"){
+          else {
+            if (def.lit.tag === "object") {
               const otherClassName = def.lit.name
               const otherClassLocation = envLookup(env, otherClassName);
               env.globals.set(def.var.name, otherClassLocation);
@@ -170,7 +165,7 @@ export function codeGenDef(def: VarDef | ClassDef, env: GlobalEnv, className: st
           const location = getVarLocationInBody(def.var, className, env);
           varDefStmts.push(`(i32.const ${classPointer + location}) ;; ${def.var.name}`);
           varDefStmts.push("(i32.const " + reprLiteral(def.lit, env) + ")");
-          varDefStmts.push("(i32.store)"); 
+          varDefStmts.push("(i32.store)");
         }
         else {
           varDefStmts.push(`(local $${def.var.name} i32)`);
@@ -190,7 +185,6 @@ export function codeGenDef(def: VarDef | ClassDef, env: GlobalEnv, className: st
         }
       })
       classDefinition.set(def.name, classVar);
-
 
       def.classBody.forEach(bd => {
         codeGenClassBody(bd, env, def.name);
@@ -246,18 +240,166 @@ export function codeGenClassBody(def: VarDef | MethodDef, env: GlobalEnv, classN
   }
 }
 
-export function 
+// Include class name for self
+export function codeGenExpr(expr: Expr, env: GlobalEnv, className: string): Array<string> {
+  switch (expr.tag) {
+    case "binop":
+      //push op 1
+      let binStmts = codeGenExpr(expr.expr1, env, className);
+      //push op 2
+      binStmts = binStmts.concat(codeGenExpr(expr.expr2, env, className));
+      binStmts.concat([`(i32.${expr.op.tag})`])
+      //add operator
+      switch (expr.op.tag) {
+        case "add":
+        case "sub":
+        case "mul":
+        case "div_s":
+        case "rem_s":
+        case "eq":
+        case "ne":
+        case "le_s":
+        case "ge_s":
+        case "lt_s":
+        case "gt_s":
+          return binStmts.concat(`(i32.${expr.op.tag})`)
+        case "is":
+          const lType = tcExpression(expr.expr1, env.types, className);
+          const rType = tcExpression(expr.expr1, env.types, className);
+          if (lType.tag === "none" && rType.tag === "none") {
+            const result = reprLiteral({ tag: "bool", value: true }, env);
+            return [result]
+          }
+          else if (lType.tag === "class" && rType.tag == "class") {
+            // Minor error here return true when two class are the same
+            if (lType.name === rType.name) {
+              const result = reprLiteral({ tag: "bool", value: true }, env);
+              return [result]
+            }
+          }
+          else {
+            const result = reprLiteral({ tag: "bool", value: false }, env);
+            return [result]
+          }
+      }
+      break;
+    case "uniop":
+      //push arg
+      let unStmts = codeGenExpr(expr.expr, env, className);
+      switch (expr.uniop.tag) {
+        case "neg":
+          unStmts.push(`(i32.const 0)`);
+          unStmts.push(`(i32.sub)`);
+          return unStmts;
+        case "eqz":
+          unStmts.push(`(i32.const -1)`);
+          unStmts.push(`(i32.xor)`);
+          return unStmts;
+      }
+    case "id":
+      console.log(expr);
+      if (expr.isGlobal) {
+        var varStmts = []
+        varStmts.push(`(i32.const ${envLookup(env, expr.name)}) ;; ${expr.name}`);
+        varStmts.push(`(i32.load)`);
+        return varStmts
+      }
+      // TODO palaceholder for x in methodbody
+      break
+    case "literal":
+      if (expr.value.tag !== "object") {
+        return ["(i32.const " + reprLiteral(expr.value, env) + ")"];
+      }
+      // There is no case where liter is object (when class clone(object)) might be the only one
+      break;
+    case "construct":
+      envLookup(env, expr.name);
+  }
+}
 
-export function codeGenStmt(stmt: Stmt, env: GlobalEnv, className: string): Array<string>{
+export function codeGenStmt(stmt: Stmt, env: GlobalEnv, className: string): Array<string> {
+  switch (stmt.tag) {
+    case "expr":
+      var exprStmts = codeGenExpr(stmt.expr, env, className);
+      return exprStmts.concat([`(local.set $$last)`]);
 
-  return []
+    case "if":
+      var ifStmts: string[] = [];
+
+      ifStmts = ifStmts.concat(codeGenExpr(stmt.cond, env, className));
+      ifStmts.push("(if");
+      ifStmts.push("(then");
+      stmt.thn.forEach(function (s: Stmt) {
+        ifStmts = ifStmts.concat(codeGenStmt(s, env, className));
+      });
+      ifStmts.push(")");
+      if (stmt.els) {
+        ifStmts.push("(else");
+        stmt.els.forEach(function (s: Stmt) {
+          ifStmts = ifStmts.concat(codeGenStmt(s, env, className));
+        });
+        ifStmts.push(")");
+      }
+      ifStmts.push(")");
+      return ifStmts
+    case "return":
+      var returnStmts: string[] = [];
+      if (stmt.value) {
+        returnStmts = returnStmts.concat(codeGenExpr(stmt.value, env, className));
+      } else {
+        returnStmts.push("(i32.const 0)");
+      }
+      returnStmts.push("(return)");
+      return returnStmts
+    case "pass":
+      return [""]
+    case "assign":
+
+      break;
+    case "memberAssign":
+
+  }
+}
+
+//required for compile time dispatching of a program's overall value
+export function lastPrint(pgm: Program, oldEnv: GlobalEnv): string {
+  var ty: Type = { tag: "none" }
+
+  var env = new Map<string, Type>(oldEnv.types);
+  //do a preliminary pass to populate env
+  for (var i = 0; i < pgm.decls.length; i++) {
+    var def = pgm.decls[i];
+    switch (def.tag) {
+      case "classDef":
+        env.set(def.name, { tag: "class", name: def.name });
+        break;
+      case "varDef":
+        env.set(def.var.name, def.var.type);
+    }
+  }
+  if (pgm.stmts.length == 0) ty = { tag: "none" }
+  //var empty = new Map<string, Type>();
+  else { ty = tcStatements(pgm.stmts[pgm.stmts.length - 1], env, { tag: "none" }, null, true); }
+  switch (ty.tag) {
+    case "number":
+      return "(call $printInt)\n";
+    case "bool":
+      return "(call $printBool)\n";
+    case "class":
+      return "(call $printClass)\n";
+    case "none":
+      return "(call $printNone)\n"
+    default:
+      return "";
+  }
 }
 
 
 export function compile(source: string, env: GlobalEnv): CompileResult {
-  const ast = parse(source);
+  tcProgram(source, env);
+  var ast = program
   var scratchEnv = cloneEnv(env);
-
+  const last_instr = lastPrint(ast, scratchEnv)
   var newEnv = augmentEnv(scratchEnv, ast.decls);
   console.log(newEnv.globals)
 
@@ -269,6 +411,7 @@ export function compile(source: string, env: GlobalEnv): CompileResult {
   defs.forEach(s => {
     switch (s.tag) {
       case "varDef":
+        s.isGlobal = true
         definedVars.add(s.var.name);
         initVars.add(s);
         break;
@@ -291,10 +434,25 @@ export function compile(source: string, env: GlobalEnv): CompileResult {
     methodDefines.concat(codeGenDef(c, newEnv, null));
   })
 
+  var initializations: string[] = [];
+  initVars.forEach((d, k, m) => initializations = initializations.concat(codeGenDef(d, newEnv, null)));
+  var localInit = [].concat([].concat.apply([], initializations));
 
+  // throw new Error(ast.stmts[ast.stmts.length - 1].tag + "");
+  const commandGroups = ast.stmts.map((stmt) => codeGenStmt(stmt, newEnv, null));
+  localDefines = localDefines.concat([].concat.apply([], localInit));
+
+  var stmtString = `(func (export "exported_func") (result i32)\n` + scratchVar + "\n";
+  stmtString += (localDefines.concat([].concat.apply([], commandGroups))).join("\n");
+  stmtString += `\n(local.get $$last)\n`;
+  stmtString += (last_instr);
+  stmtString += `)`;
+  var commands = methodDefines.join("\n") + "\n" + stmtString + "\n";
+  //const commands = localDefines.concat([].concat.apply([], commandGroups));
+  console.log("Generated: ", commands);//commands.join("\n"));
+  //throw new Error(commands.join("\n"));
   return {
-    declFuncs: null,
-    wasmSource: null,
-    newEnv: null
+    wasmSource: commands,//.join("\n"),
+    newEnv: newEnv
   };
 }

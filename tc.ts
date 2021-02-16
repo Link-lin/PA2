@@ -1,6 +1,6 @@
 import { isVariableStatement } from "typescript";
 import { EnvironmentPlugin } from "webpack";
-import { ClassDef, VarDef, Expr, Stmt, Type, Value, MethodDef } from "./ast";
+import { ClassDef, VarDef, Expr, Stmt, Type, Value, MethodDef, Program } from "./ast";
 import { GlobalEnv } from "./compiler";
 import { parse } from "./parser";
 
@@ -17,6 +17,7 @@ type ClassTypes = {
 }
 
 var classes = new Map<string, ClassTypes>()
+export var program:Program = null;
 
 export function tcLiteral(literal: Value, env: Map<string, Type>): Type {
     switch (literal.tag) {
@@ -41,10 +42,13 @@ export function tcExpression(expr: Expr, env: Map<string, Type>, className: stri
         case "id":
             // When this is self return className
             if (expr.name === "self") {
+                expr.isGlobal = false
+                // TODO may check if self is in global
                 return { tag: "class", name: className };
             }
             if (env.has(expr.name)) {
                 // console.log("typechecked local var/param " + expr.name);
+                expr.isGlobal = true 
                 return env.get(expr.name);
             }
             throw new Error("Not a variable: " + expr.name);
@@ -164,7 +168,7 @@ export function tcStatements(stmt: Stmt, env: Map<string, Type>, expectReturn: T
         // TO DO class type check differently
         // console.log(t);
         //console.log(expectReturn);
-        if (t.tag != expectReturn.tag) {
+        if (t.tag != expectReturn.tag && className != null) {
             throw new Error("Return type does not match actual return type");
         }
     }
@@ -347,7 +351,7 @@ export function tcClassBody(def: VarDef | MethodDef, env: Map<string, Type>, cla
 export async function tcProgram(source: string, oldEnv: GlobalEnv): Promise<Type> {
     console.log(oldEnv);
     var result: Type = { tag: "none" };
-    const program = parse(source);
+    program = parse(source);
 
     var env = new Map<string, Type>(oldEnv.types);
 

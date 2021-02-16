@@ -43,17 +43,15 @@ export async function run(source : string, config: any) : Promise<[any, compiler
     const memory = new WebAssembly.Memory({initial:10, maximum:100});
     importObject.js = { memory: memory };
   }
-  declaredFunc.push(compiled.declFuncs)
   const wasmSource = `(module
-    (func $print (import "imports" "imported_func") (param i64))
-    (func $printglobal (import "imports" "print_global_func") (param i64) (param i64))
+    (func $printInt (import "imports" "printInt") (param i32) (result i32))
+    (func $printBool (import "imports" "printBool") (param i32) (result i32))
+    (func $printNone (import "imports" "printNone") (param i32) (result i32))
+    (func $printClass (import "imports" "printClass") (param i32) (result i32))
+    (func $printOther (import "imports" "printOther") (param i32) (result i32))
     (import "js" "memory" (memory 1))
-    ${declaredFunc.join("")}
-    (func (export "exported_func") ${returnType}
       ${compiled.wasmSource}
-      ${returnExpr}
-  ))`;
-  console.log(wasmSource);
+    )`;
   const myModule = wabtInterface.parseWat("test.wat", wasmSource);
   var asBinary = myModule.toBinary({});
   var wasmModule = await WebAssembly.instantiate(asBinary.buffer, importObject);
