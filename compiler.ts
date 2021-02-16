@@ -1,345 +1,300 @@
-import { Stmt, Expr, Op, UniOp, Type, Value } from "./ast";
+import { GlobalEnv } from './compiler';
+import { methodTypes } from './tc';
+import { Stmt, Expr, Op, UniOp, Type, Value, ClassDef, VarDef, MethodDef, MethodBody, TypedVar } from "./ast";
 import { parse } from "./parser";
 
-/*
-// https://learnxinyminutes.com/docs/wasm/
-export const TRUE = BigInt(1) << BigInt(32)
-export const FALSE = BigInt(2) << BigInt(32)
-export const NONE = BigInt(4) << BigInt(32)
+
+export const emptyEnv = { globals: new Map(), offset: 0 };
+
+type CompileResult = {
+  declFuncs: string,
+  wasmSource: string,
+  newEnv: GlobalEnv
+};
 
 // Numbers are offsets into global memory
 export type GlobalEnv = {
-  types: Map<string, string>
-  globals: Map<string, number>;
-  offset: number;
+  types: Map<string, Type>,
+  globals: Map<string, number>,
+  classSize: Map<string, number>,
+  defineMethodSigs: Map<string, string>
+  definedMethodsBody: Map<string, string>,
+  offset: number
 }
-export const emptyEnv = { globals: new Map(), offset: 0 };
+
+var classDefinition = new Map<string, Array<TypedVar>>()
+
+function reprLiteral(literal: Value, env: GlobalEnv): string {
+  switch (literal.tag) {
+    case "none":
+      return "0";
+    case "bool":
+      return literal.value ? "1" : "0"
+    case "num":
+      return literal.value.toString();
+    case "object":
+      envLookup(env, literal.name)
+  }
+}
+
+export function cloneEnv(env: GlobalEnv): GlobalEnv {
+  return {
+    globals: new Map<string, number>(env.globals),
+    types: new Map<string, Type>(env.types),
+    classSize: new Map<string, number>(env.classSize),
+    defineMethodSigs: new Map<string, string>(env.defineMethodSigs),
+    definedMethodsBody: new Map<string, string>(env.definedMethodsBody),
+    offset: env.offset
+  };
+}
 
 
-export function augmentEnv(env: GlobalEnv, stmts: Array<Stmt>): GlobalEnv {
+export function augmentEnv(env: GlobalEnv, defs: Array<VarDef | ClassDef>): GlobalEnv {
   const newEnv = new Map(env.globals);
-  const newTypes = new Map(env.types);
+  var newTypes = new Map(env.types);
+  var newClassSize = new Map(env.classSize);
+  var newMethodSigs = new Map(env.defineMethodSigs);
+  var newMethodBody = new Map(env.definedMethodsBody);
   var newOffset = env.offset;
-  stmts.forEach((s) => {
+
+  // Handle all the variables first
+  defs.forEach((s) => {
     switch (s.tag) {
-      case "init":
-        newTypes.set(s.name, s.type.tag);
-        newEnv.set(s.name, newOffset);
-        newOffset += 1;
+      case "varDef":
+        if (s.var.type.tag !== "class") {
+          newEnv.set(s.var.name, newOffset);
+          newTypes.set(s.var.name, s.var.type);
+          newOffset += 1;
+        }
+        else {
+          newEnv.set(s.var.name, newOffset);
+          newTypes.set(s.var.name, s.var.type);
+          // console.log(s.var.name);
+          // console.log(newClassSize)
+          newOffset += newClassSize.get(s.var.type.name);
+        }
+        break;
+      case "classDef":
+        const body = s.classBody
+        var bodySize = calculateClassSize(body, newClassSize);
+        newClassSize.set(s.name, bodySize);
         break;
     }
   })
+
   return {
-    types: newTypes,
     globals: newEnv,
+    types: newTypes,
+    classSize: newClassSize,
+    defineMethodSigs: newMethodSigs,
+    definedMethodsBody: newMethodBody,
     offset: newOffset
   }
 }
 
-type CompileResult = {
-  declFuncs: string,
-  wasmSource: string,
-  newEnv: GlobalEnv
-};
-
-var isFunc = false
-
-export function compile(source: string, env: GlobalEnv): CompileResult {
-  const ast = parse(source);
-  console.log(ast);
-  const definedVars = new Set();
-  const withDefines = augmentEnv(env, ast);
-  // Check if init or func def came before all other
-  var cameBefore = true
-  var otherAppear = false
-  ast.forEach(s => {
-    if (s.tag !== "init" && s.tag !== "define") {
-      otherAppear = true
-    }
-    if (otherAppear && (s.tag === "init" || s.tag === "define")) {
-      cameBefore = false
-    }
-  })
-  // If not defined before 
-  if (!cameBefore) throw new Error("Program should have var_def and func_def at top")
-
-  // Function definition
-  const funcs: Array<string> = [];
-  ast.forEach((stmt) => {
-    if (stmt.tag === "define") { isFunc = true; funcs.push(codeGen(stmt, withDefines).join("\n")); }
-  });
-  isFunc = false;
-  const allFuns = funcs.join("\n\n");
-  const stmts = ast.filter((stmt) => stmt.tag !== "define");
-  ast.forEach(s => {
-    switch (s.tag) {
-      case "init":
-        definedVars.add(s.name);
-        break;
+function calculateClassSize(body: Array<VarDef | MethodDef>, classSize: Map<string, number>): number {
+  var bodySize = 0;
+  body.forEach(decl => {
+    if (decl.tag === "varDef") {
+      // don't have class varibale inside class with this difinition
+      if(decl.var.type.tag === "class"){ 
+        bodySize += calculateClassVaiableSize(decl.var.type, classSize);
+      }
+      else{
+        bodySize += 1
+      }
     }
   });
-  const scratchVar: string = `(local $$last i64)`;
-  const localDefines = [scratchVar];
-  definedVars.forEach(v => {
-    localDefines.push(`(local $${v} i64)`);
-  })
-
-  const commandGroups = stmts.map((stmt) => codeGen(stmt, withDefines).join("\n"));
-  const commands = localDefines.concat([].concat.apply([], commandGroups));
-  //const commands = commandGroups.join("")
-  console.log("Generated: ", commands.join("\n"));
-  return {
-    declFuncs: allFuns,
-    wasmSource: commands.join("\n"),
-    newEnv: withDefines
-  };
+  return bodySize;
 }
 
-function envLookup(env: GlobalEnv, name: string): number {
+function calculateClassVaiableSize(type: Type, classSize: Map<string, number>) {
+  if (type.tag !== "class") return 1
+  else {
+    return classSize.get(type.name)
+  }
+}
+
+function getVarLocationInBody(typedVar: TypedVar, className: string, env: GlobalEnv){
+
+  const vars:TypedVar[] = classDefinition.get(className);
+
+  var index = 0
+
+  vars.forEach(v => {
+    if(v.name === typedVar.name && v.type.tag === typedVar.type.tag){
+      return index;
+    }
+    else{
+      calculateClassVaiableSize(v.type, env.classSize);
+    }
+  })
+  return index
+}
+
+function envLookup(env: GlobalEnv, name: string) {
   if (!env.globals.has(name)) { console.log("Could not find " + name + " in ", env); throw new Error("Could not find name " + name); }
-  return (env.globals.get(name) * 8); // 8-byte values
+  return (env.globals.get(name) * 4); // 4-byte values
 }
 
-export function codeGen(stmt: Stmt, env: GlobalEnv): Array<string> {
-  switch (stmt.tag) {
-    case "init":
-      if (isFunc) {
-        var valStmts = codeGenExpr(stmt.value, env)
-        valStmts.push(`(local.set $${stmt.name})`)
-        return valStmts
+export function codeGenDef(def: VarDef | ClassDef, env: GlobalEnv, className: string): Array<string> {
+  switch (def.tag) {
+    case "varDef":
+      var varDefStmts: string[] = [];
+      if (def.isGlobal) { //this is a global variable
+        // If the global variable is not class
+        if (def.var.type.tag !== "class") {
+          varDefStmts.push(`(i32.const ${envLookup(env, def.var.name)}) ;; ${def.var.name}`);
+          varDefStmts.push("(i32.const " + reprLiteral(def.lit, env) + ")");
+          varDefStmts.push("(i32.store)");
+        }
+        else {
+          // if the varDef is a class
+          if(def.lit.tag === "none"){
+            varDefStmts.push(`(i32.const ${envLookup(env, def.var.name)}) ;; ${def.var.name}`);
+            varDefStmts.push("(i32.const " + reprLiteral(def.lit, env) + ")");
+            varDefStmts.push("(i32.store)");
+          }
+          else{
+            if(def.lit.tag === "object"){
+              const otherClassName = def.lit.name
+              const otherClassLocation = envLookup(env, otherClassName);
+              env.globals.set(def.var.name, otherClassLocation);
+            }
+          }
+        }
       } else {
-        const locationToSt = [`(i32.const ${envLookup(env, stmt.name)}) ;; ${stmt.name}`];
-        var valStmts = codeGenExpr(stmt.value, env);
-        return locationToSt.concat(valStmts).concat([`(i64.store)`]);
-      }
-    case "assign":
-      if (isFunc) {
-        var valStmts = codeGenExpr(stmt.value, env);
-        // Do type check here
-        valStmts.push(`(local.set $${stmt.name})`);
-        return valStmts;
-      }
-      const locationToStore = [`(i32.const ${envLookup(env, stmt.name)}) ;; ${stmt.name}`];
-      var valStmts = codeGenExpr(stmt.value, env);
-      let tmp = locationToStore.concat(valStmts).concat([`(i64.store)`]);
-      console.log(tmp);
-      return tmp
-    case "if":
-      var conStmts: string[] = []
-      const cond = codeGenExpr(stmt.cond, env);
-      //conStmts.push("(local $cond i32)" + cond.join("\n"))
-      if ((stmt.cond.tag) === "literal") {
-        if (stmt.cond.value.tag == "number") {
-          throw new Error("Cannot have int as condition")
+        // Inside the class
+        if (className) {
+          const classPointer = envLookup(env, className);
+          const location = getVarLocationInBody(def.var, className, env);
+          varDefStmts.push(`(i32.const ${classPointer + location}) ;; ${def.var.name}`);
+          varDefStmts.push("(i32.const " + reprLiteral(def.lit, env) + ")");
+          varDefStmts.push("(i32.store)"); 
+        }
+        else {
+          varDefStmts.push(`(local $${def.var.name} i32)`);
+          varDefStmts.push("(i32.const " + reprLiteral(def.lit, env) + ")");
+          varDefStmts.push(`(local.set $${def.var.name})`);
         }
       }
-      conStmts.push(cond.join("\n"))
-      conStmts.push(`(i64.const ${TRUE}) \n (i64.eq)\n`) // Only necessary when it's actually True false in cond
-      //conStmts.push(` (local.set $cond)`)
+      return varDefStmts;
+    case "classDef":
+      var classVar: TypedVar[] = []
 
-      const thenStmtsGroup = stmt.thn.map(thnstmt => codeGen(thnstmt, env).join("\n"));
-      const thenStmts = thenStmtsGroup.join("\n")
-
-      //let s = [`(if (local.get $cond)\n (then\n ${thenStmts})`]
-      let s = [`(if (result i64) (then\n ${thenStmts})`]
-      //console.log(stmt.els.length)
-      if (stmt.els.length != 0) {
-        const elseStmtsGroup = stmt.els.map(elstmt => codeGen(elstmt, env).join("\n"));
-        const elseStmts = elseStmtsGroup.join("\n")
-        s = s.concat(`(else\n ${elseStmts})`)
-      }
-      return conStmts.concat(s).concat(")");
-    case "print":
-      var valStmts = codeGenExpr(stmt.value, env);
-      return valStmts.concat([
-        "(call $print)"
-      ]);
-    case "return":
-      var valStmts = codeGenExpr(stmt.value, env);
-      valStmts.push("return")
-      return valStmts;
-    case "pass":
-      return []
-    case "expr":
-      var exprStmts = codeGenExpr(stmt.expr, env);
-      if (isFunc) return exprStmts
-      return exprStmts.concat([`(local.set $$last)`]);
-    case "while":
-      var wCond = codeGenExpr(stmt.expr, env);
-      var condStmts: string[] = []
-      condStmts.push(wCond.join("\n"));
-      condStmts.push(`(i64.const ${TRUE}) \n (i64.ne)\n`) // Only necessary when it's actually True false in cond
-
-      var exprStmts: string[] = [];
-      //console.log(stmt.stmts);
-      stmt.stmts.forEach(st => exprStmts.push(codeGen(st, env).join("\n")));
-      //console.log(exprStmts);
-
-      let whileStmts = `(block\n (loop \n ${condStmts.join("\n")} (br_if 1) ${exprStmts.join("\n")} (br 0)) )`
-      return [whileStmts]
-    case "define":
-      const funcBody = stmt.body
-      // Check if init or func def came before all other
-      var cameBefore = true
-      var otherAppear = false
-      funcBody.forEach(s => {
-        if (s.tag === "define") { throw new Error("no function declare inside function body") };
-        if (s.tag !== "init") {
-          otherAppear = true
-        }
-        if (otherAppear && s.tag === "init") {
-          cameBefore = false
+      // Populate class Variable
+      def.classBody.forEach(bd => {
+        switch (bd.tag) {
+          case "varDef":
+            classVar.push(bd.var);
         }
       })
-      if (!cameBefore) { throw new Error("var_def should preceed all stmts") }
+      classDefinition.set(def.name, classVar);
 
-      var params = stmt.parameters.map(p => `(param $${p.name} i64)`).join(" ");
-      const funcVarDecls: Array<string> = [];
-      //funcVarDecls.push(`(local $$last i64)`);
-      // Initialize function var def
-      funcBody.forEach(stmt => {
-        if (stmt.tag == "init") {
-          funcVarDecls.push(`(local $${stmt.name} i64)`);
-        }
+
+      def.classBody.forEach(bd => {
+        codeGenClassBody(bd, env, def.name);
+      })
+  }
+}
+
+export function codeGenMethodody(body: MethodBody, env: GlobalEnv, className: string) {
+  var bodyStmts: Array<string> = [];
+  body.localDecls.forEach(function (def) {
+    bodyStmts = bodyStmts.concat(codeGenDef(def, env, className));
+  });
+
+  body.stmts.forEach(function (stmt) {
+    bodyStmts = bodyStmts.concat(codeGenStmt(stmt, env, className));
+  });
+  //bodyStmts.push("(local.get $$last)");
+  bodyStmts.push("(i32.const 0)"); //implicitly return None
+  bodyStmts.push("(return)");
+  bodyStmts.push("(unreachable)");
+  return bodyStmts
+}
+
+export function codeGenClassBody(def: VarDef | MethodDef, env: GlobalEnv, className: string): Array<string> {
+  switch (def.tag) {
+    case "varDef":
+
+      codeGenDef(def, env, className);
+      break;
+    case "methodDef":
+      var methodDefStmts: string[] = []
+      var sigHead = `(func $${className}_${def.name} `
+
+      var defstring = "";
+      def.params.forEach(function (param) {
+        defstring += ` (param $${param.name} i32)`; // always i32
       });
-      // Treat all local 
-      // Generate stmts code for func
-      var funcStmtsGroup = funcBody.map(stmt => codeGen(stmt, env))
-      const funcStmts = [].concat([].concat.apply([], funcStmtsGroup));
-      return [`(func $${stmt.name} ${params} (result i64) \n ${funcVarDecls.join("\n")} ${funcStmts.join("\n")})`];
+      defstring += " (result i32)"
+      methodDefStmts.push(sigHead + defstring);
+      //funcDefStmts.push(exportHead + defstring);
+      var methodSig = sigHead + defstring + ")";
+      env.defineMethodSigs.set((className + "_" + def.name), methodSig);
+
+      methodDefStmts.push("(local $$last i32)")
+
+      methodDefStmts = methodDefStmts.concat(codeGenMethodody(def.body, env, className));
+      methodDefStmts.push(")");
+
+      var exportMethod = methodDefStmts.join("\n") + "\n";
+      env.definedMethodsBody.set((className + "_" + def.name), exportMethod);
+
+      return []
   }
 }
 
-function codeGenExpr(expr: Expr, env: GlobalEnv): Array<string> {
-  switch (expr.tag) {
-    case "id":
-      if (env.globals.has(expr.name)) {
-        return [`(i32.const ${envLookup(env, expr.name)})`, `(i64.load)`]
-      }
-      else {
-        return [`(local.get $${expr.name})`] // take cares of parameters and local def
-      }
-    case "literal":
-      const val = expr.value
-      switch (val.tag) {
-        case "None":
-          return [`(i64.const ${NONE})`]
-        case "number":
-          return ["(i64.const " + val.value + ")"];
-        case "False":
-          return [`(i64.const ${FALSE})`]
-        case "True":
-          return [`(i64.const ${TRUE})`]
-      }
-    // Cases for binary operation and bultin2
-    case "binop":
-      checkTypeOp(expr.expr1, expr.op, "left side", env)
-      checkTypeOp(expr.expr2, expr.op, "right side", env)
-      var stmts = codeGenExpr(expr.expr1, env);
-      //const stmts2 = codeGenExpr(expr.expr2)
-      stmts = stmts.concat(codeGenExpr(expr.expr2, env))
-      stmts = stmts.concat(["(i64." + expr.op.tag + ")"])
-      // If result is int don't need to signextend
-      if (resultIsInt(expr.op)) { return stmts }
-      // Sign extend possible boolean result
-      return stmts.concat([(`(if (result i64) (then (i64.const ${TRUE})) (else (i64.const ${FALSE})))`)])
-    case "uniop":
-      //TODO 
-      checkTypeOp(expr.expr, expr.uniop, "", env)
-      var stmts: string[] = []
-      if (expr.uniop.tag === "neg") {
-        expr = {
-          tag: "binop",
-          expr1: { tag: "literal", value: { tag: "number", value: 0, type: { tag: "int" } } },
-          expr2: expr.expr,
-          op: { tag: "sub" }
-        }
-        stmts = codeGenExpr(expr, env);
-      }
-      return stmts
-    /*
-    var stmts = codeGenExpr(expr.expr, env);
-    stmts = stmts.concat(["(i64." + expr.uniop.tag + ")"])
-    return stmts.concat(["(i64.extend_i32_s)"])
-    case "call":
-      var valStmts: string[] = []
-      expr.arguments.forEach(arg => valStmts.push(codeGenExpr(arg, env).join("\n")))
-      valStmts.push(`(call $${expr.name})`);
-      return valStmts
-  }
-}
-function resultIsInt(op: Op): boolean {
-  return (op.tag === "add" || op.tag === "sub" || op.tag === "mul" || op.tag == "div_s" || op.tag == "rem_s")
+export function 
+
+export function codeGenStmt(stmt: Stmt, env: GlobalEnv, className: string): Array<string>{
+
+  return []
 }
 
-function checkTypeOp(expr: Expr, op: Op | UniOp, posStr: string, gEnv: GlobalEnv) {
-  const o = op.tag;
-  if (expr.tag === "literal") {
-    console.log("CheckType: " + expr.value.tag + " " + op.tag)
-    const v = expr.value.tag;
-    switch (v) {
-      case "None":
-        throw new Error(`Operation ${o} operated on ${posStr} None`)
-      case "number":
-        if (o === "eqz") {
-          throw new Error(`Operation ${o} operated on ${posStr} number`)
-        }
-        break;
-      case "False":
-        if (o !== "eqz") {
-          throw new Error(`Operation ${o} operated on ${posStr} Boolean Value False`)
-        }
-        break;
-      case "True":
-        if (o !== "eqz") {
-          throw new Error(`Operation ${o} operated on ${posStr} Boolean Value True`)
-        }
-        break;
-    }
-  }
-  else if (expr.tag === "id") {
-    // right now can only check global defined var
-    if (gEnv.types.has(expr.name)) {
-      switch (gEnv.types.get(expr.name)) {
-        case "int":
-          if (o === "eqz") {
-            throw new Error(`Operation ${o} operated on ${posStr} number`)
-          }
-          break;
-        case "bool":
-          if (o !== "eqz") {
-            throw new Error(`Operation ${o} operated on ${posStr} Boolean Value`)
-          }
-          break;
-      }
-    }
-  }
-}
-*/
-
-export const emptyEnv = { globals: new Map(), offset: 0 };
-
-type CompileResult = {
-  declFuncs: string,
-  wasmSource: string,
-  newEnv: GlobalEnv
-};
-
-// Numbers are offsets into global memory
-export type GlobalEnv = {
-  types: Map<string, Type>
-  globals: Map<string, number>;
-  offset: number;
-}
 
 export function compile(source: string, env: GlobalEnv): CompileResult {
   const ast = parse(source);
-  console.log(ast);
-  const definedVars = new Set();
+  var scratchEnv = cloneEnv(env);
+
+  var newEnv = augmentEnv(scratchEnv, ast.decls);
+  console.log(newEnv.globals)
+
+  const defs = ast.decls;
+  var definedVars = new Set();
+  var definedClasses = new Set<ClassDef>();
+  var initVars = new Set<VarDef>();
+
+  defs.forEach(s => {
+    switch (s.tag) {
+      case "varDef":
+        definedVars.add(s.var.name);
+        initVars.add(s);
+        break;
+      case "classDef":
+        definedClasses.add(s);
+        break;
+    }
+  })
+
+  console.log(definedClasses);
+  const scratchVar: string = `(local $$last i32)`;
+  var localDefines: string[] = [];
+  definedVars.forEach(v => {
+    localDefines.push(`(local $${v} i32)`);
+  })
+
+  // perform initialization
+  var methodDefines: string[] = [];
+  definedClasses.forEach(c => {
+    methodDefines.concat(codeGenDef(c, newEnv, null));
+  })
+
 
   return {
     declFuncs: null,
     wasmSource: null,
-    newEnv:null 
+    newEnv: null
   };
 }

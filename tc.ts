@@ -4,7 +4,7 @@ import { ClassDef, VarDef, Expr, Stmt, Type, Value, MethodDef } from "./ast";
 import { GlobalEnv } from "./compiler";
 import { parse } from "./parser";
 
-type methodTypes = {
+export type methodTypes = {
     selfType: Type,
     retType: Type,
     paramTypes: Map<string, Type>,
@@ -35,7 +35,6 @@ export function tcLiteral(literal: Value, env: Map<string, Type>): Type {
 }
 
 export function tcExpression(expr: Expr, env: Map<string, Type>, className: string): Type {
-    console.log(expr);
     switch (expr.tag) {
         case "literal":
             return tcLiteral(expr.value, env);
@@ -159,13 +158,12 @@ export function tcExpression(expr: Expr, env: Map<string, Type>, className: stri
 }
 
 export function tcStatements(stmt: Stmt, env: Map<string, Type>, expectReturn: Type, className: string, isLast: boolean): Type {
-    console.log(stmt);
     if (isLast) {
         const t = tcStatements(stmt, env, expectReturn, className, false);
         if (expectReturn == null) return t
         // TO DO class type check differently
-        console.log(t);
-        console.log(expectReturn);
+        // console.log(t);
+        //console.log(expectReturn);
         if (t.tag != expectReturn.tag) {
             throw new Error("Return type does not match actual return type");
         }
@@ -216,7 +214,7 @@ export function tcStatements(stmt: Stmt, env: Map<string, Type>, expectReturn: T
                 }
 
                 var returnType = tcExpression(stmt.value, env, className);
-                console.log([stmt, returnType]);
+                //console.log([stmt, returnType]);
                 if (returnType.tag === expectReturn.tag) {
                     return returnType;
                 } else {
@@ -241,7 +239,7 @@ export function tcStatements(stmt: Stmt, env: Map<string, Type>, expectReturn: T
                 else {
                     const exprType = tcExpression(stmt.expr2, env, className);
                     const leftType = classEnv.vars.get(stmt.propertyName)
-                    console.log(leftType);
+                    //console.log(leftType);
                     if (leftType.tag === "class") {
                         if (exprType.tag === "number" || exprType.tag === "bool") {
                             throw new Error("Expected type " + leftType.name + "; got type " + exprType.tag);

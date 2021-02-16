@@ -202,7 +202,7 @@ export function traverseClassBody(c: TreeCursor, s: string): Array<VarDef | Meth
 
   do {
     if (isVarDecl(c)) {
-      console.log(s.substring(c.from, c.to));
+      // console.log(s.substring(c.from, c.to));
       let vardef = traverseVarDef(c, s);
       classbodyDefs.push(vardef);
     }

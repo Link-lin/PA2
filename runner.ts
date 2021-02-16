@@ -31,10 +31,12 @@ export async function run(source : string, config: any) : Promise<[any, compiler
   var returnExpr = "";
   
   const stmts = parsed.stmts;
+  /*
   if(stmts[stmts.length - 1].tag === "expr") {
     returnType = "(result i64)";
     returnExpr = "(local.get $$last)"
   }
+  */
   const compiled = compiler.compile(source, config.env);
   const importObject = config.importObject;
   if(!importObject.js) {

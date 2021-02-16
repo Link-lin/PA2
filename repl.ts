@@ -20,6 +20,9 @@ export class BasicREPL {
     }
     this.currentEnv = {
       types: new Map(),
+      defineMethodSigs: new Map(),
+      classSize: new Map(),
+      definedMethodsBody: new Map(),
       globals: new Map(),
       offset: 0
     };
