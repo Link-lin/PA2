@@ -2,6 +2,7 @@ import {run} from "./runner";
 import {emptyEnv, GlobalEnv} from "./compiler";
 import { Type } from "./ast";
 import { tcProgram } from "./tc";
+import { PyValue } from "./utils";
 
 interface REPL {
   run(source : string) : Promise<any>;

@@ -382,7 +382,7 @@ export function lastPrint(pgm: Program, oldEnv: GlobalEnv): string {
   else { ty = tcStatements(pgm.stmts[pgm.stmts.length - 1], env, { tag: "none" }, null, true); }
   switch (ty.tag) {
     case "number":
-      return "(call $print_int)\n";
+      return "(call $print_num)\n";
     case "bool":
       return "(call $print_bool)\n";
     case "class":
@@ -396,7 +396,7 @@ export function lastPrint(pgm: Program, oldEnv: GlobalEnv): string {
 
 
 export function compile(source: string, env: GlobalEnv): CompileResult {
-  tcProgram(source, env);
+  const t = tcProgram(source, env);
   var ast = program
   var scratchEnv = cloneEnv(env);
   const last_instr = lastPrint(ast, scratchEnv)

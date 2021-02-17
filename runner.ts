@@ -7,6 +7,8 @@ import wabt from 'wabt';
 //import { TRUE, FALSE, NONE, codeGen } from './compiler_old';
 import * as compiler from './compiler';
 import {parse} from './parser';
+import { tcProgram } from './tc';
+import { PyValue } from './utils';
 
 // NOTE(joe): This is a hack to get the CLI Repl to run. WABT registers a global
 // uncaught exn handler, and this is not allowed when running the REPL
@@ -60,6 +62,8 @@ export async function run(source : string, config: any) : Promise<[any, compiler
   //if(result === TRUE){ result ="True" } 
   //else if(result === NONE){ result = "None" }
   //else if(result === FALSE){ result = "false" }
+  const type = await tcProgram(source, compiled.newEnv);
+  result = PyValue(type, result);
 
   return [result, compiled.newEnv];
 }
