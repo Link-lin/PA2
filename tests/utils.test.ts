@@ -3,6 +3,7 @@ import { expect } from "chai";
 import { BasicREPL } from "../repl";
 import { Value } from "../ast";
 import { importObject } from "./import-object.test";
+//import { importObject } from "../webstart";
 import { fail } from "assert";
 
 

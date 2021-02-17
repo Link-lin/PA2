@@ -44,11 +44,10 @@ export async function run(source : string, config: any) : Promise<[any, compiler
     importObject.js = { memory: memory };
   }
   const wasmSource = `(module
-    (func $printInt (import "imports" "printInt") (param i32) (result i32))
-    (func $printBool (import "imports" "printBool") (param i32) (result i32))
-    (func $printNone (import "imports" "printNone") (param i32) (result i32))
-    (func $printClass (import "imports" "printClass") (param i32) (result i32))
-    (func $printOther (import "imports" "printOther") (param i32) (result i32))
+    (func $print (import "imports" "print") (param i32) (result i32))
+    (func $print_num (import "imports" "print_num") (param i32) (result i32))
+    (func $print_none (import "imports" "print_none") (param i32) (result i32))
+    (func $print_bool (import "imports" "print_bool") (param i32) (result i32))
     (import "js" "memory" (memory 1))
       ${compiled.wasmSource}
     )`;

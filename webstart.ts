@@ -1,66 +1,40 @@
 import {BasicREPL} from './repl';
-import {emptyEnv, GlobalEnv} from './compiler';
-import { output } from './webpack.config';
+import { Type } from './ast';
+import { BOOL, CLASS, NONE, NUM } from './utils';
 
 
 function webStart() {
   document.addEventListener("DOMContentLoaded", function() {
 
+    function stringify(typ: Type, arg: any): string {
+      switch (typ.tag) {
+        case "number":
+          return (arg as number).toString();
+        case "bool":
+          return (arg as boolean) ? "True" : "False";
+        case "none":
+          return "None";
+        case "class":
+          return typ.name;
+      }
+    }
+
+    function print(typ: Type, arg: any): any {
+      console.log("Logging from WASM: ", arg);
+      const elt = document.createElement("pre");
+      document.getElementById("output").appendChild(elt);
+      elt.innerText = stringify(typ, arg);
+      return arg;
+    }
+
     var importObject = {
       imports: {
-        print_global_func: (pos: number, value: number) => {
-          var name = importObject.nameMap[pos];
-          var msg = name + " = " + value;
-          renderResult(msg);
-        },
-        printInt: (arg : any) => {
-          console.log("Logging from WASM: ", arg);
-          const elt = document.createElement("pre");
-          document.getElementById("output").appendChild(elt);
-          elt.innerText = arg;
-          return 0;
-        },
-        printNone: (arg : any) => {
-          console.log("Logging from WASM: ", arg);
-          const elt = document.createElement("pre");
-          document.getElementById("output").appendChild(elt);
-          elt.innerText = "None";
-          return 0;
-        },
-        printBool: (arg : number) => {
-          var bool = "False";
-          if(arg != 0){
-            bool = "True";
-          }
-          console.log("Logging from WASM: ", bool);        
-          const elt = document.createElement("pre");
-          document.getElementById("output").appendChild(elt);
-          elt.innerText = bool;
-          return 0;
-        },
-        printOther: (arg : any) => {
-          throw new Error("Provided invalid arg to print");
-          return 0;
-        },
-        printClass: (arg: any) => {
-          console.log("Logging from WASM: ", arg);
-          const elt = document.createElement("pre");
-          document.getElementById("output").appendChild(elt);
-          elt.innerText = arg;
-          return 0;
-        }
-
+        print: (arg: any) => print(CLASS(""), arg),
+        print_num: (arg: number) => print(NUM, arg),
+        print_bool: (arg: number) => print(BOOL, arg),
+        print_none: (arg: number) => print(NONE, arg),
       },
-    
-      nameMap: new Array<string>(),
-    
-      updateNameMap : (env : GlobalEnv) => {
-        env.globals.forEach((pos, name) => {
-          importObject.nameMap[pos] = name;
-        })
-      }
     };
-    const env = emptyEnv;
     var repl = new BasicREPL(importObject);
 
     function renderResult(result : any) : void {

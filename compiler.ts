@@ -382,13 +382,13 @@ export function lastPrint(pgm: Program, oldEnv: GlobalEnv): string {
   else { ty = tcStatements(pgm.stmts[pgm.stmts.length - 1], env, { tag: "none" }, null, true); }
   switch (ty.tag) {
     case "number":
-      return "(call $printInt)\n";
+      return "(call $print_int)\n";
     case "bool":
-      return "(call $printBool)\n";
+      return "(call $print_bool)\n";
     case "class":
-      return "(call $printClass)\n";
+      return "(call $print)\n";
     case "none":
-      return "(call $printNone)\n"
+      return "(call $print_none)\n"
     default:
       return "";
   }

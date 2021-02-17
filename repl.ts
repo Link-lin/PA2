@@ -29,13 +29,11 @@ export class BasicREPL {
   }
 
   async tc(source:string): Promise<Type>{
-    this.importObject.updateNameMap(this.currentEnv); // is this the right place for updating the object's env?
     const result = await tcProgram(source, this.currentEnv);
     return result;
   }
 
   async run(source : string) : Promise<any> {
-    this.importObject.updateNameMap(this.currentEnv); // is this the right place for updating the object's env?
     const [result, newEnv] = await run(source, {importObject: this.importObject, env: this.currentEnv});
     this.currentEnv = newEnv;
     return result;
