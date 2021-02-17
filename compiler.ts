@@ -1,6 +1,5 @@
 import { methodTypes, tcExpression, tcLiteral, tcStatements, program, tcProgram } from './tc';
 import { Stmt, Expr, Op, UniOp, Type, Value, ClassDef, VarDef, MethodDef, MethodBody, TypedVar, Program } from "./ast";
-import { parse } from "./parser";
 
 
 export const emptyEnv = { globals: new Map(), offset: 0 };
@@ -20,7 +19,7 @@ export type GlobalEnv = {
   offset: number
 }
 
-var classDefinition = new Map<string, Array<TypedVar>>()
+var classDefinition = new Map<string, Array<VarDef>>()
 
 function reprLiteral(literal: Value, env: GlobalEnv): string {
   switch (literal.tag) {
@@ -76,6 +75,7 @@ export function augmentEnv(env: GlobalEnv, defs: Array<VarDef | ClassDef>): Glob
         const body = s.classBody
         var bodySize = calculateClassSize(body, newClassSize);
         newClassSize.set(s.name, bodySize);
+        // Save counter pointer in globals
         break;
     }
   })
@@ -113,21 +113,22 @@ function calculateClassVaiableSize(type: Type, classSize: Map<string, number>) {
   }
 }
 
-function getVarLocationInBody(typedVar: TypedVar, className: string, env: GlobalEnv) {
-  const vars: TypedVar[] = classDefinition.get(className);
+function getVarLocationInBody(typedVar: TypedVar, className: string, env: GlobalEnv): number{
+  const vars: VarDef[] = classDefinition.get(className);
   var index = 0
   vars.forEach(v => {
-    if (v.name === typedVar.name && v.type.tag === typedVar.type.tag) {
+    if (v.var.name === typedVar.name && v.var.type.tag === typedVar.type.tag) {
       return index;
     }
     else {
-      calculateClassVaiableSize(v.type, env.classSize);
+      calculateClassVaiableSize(v.var.type, env.classSize);
     }
   })
   return index
 }
 
 function envLookup(env: GlobalEnv, name: string) {
+  if(name)
   if (!env.globals.has(name)) { console.log("Could not find " + name + " in ", env); throw new Error("Could not find name " + name); }
   return (env.globals.get(name) * 4); // 4-byte values
 }
@@ -161,11 +162,15 @@ export function codeGenDef(def: VarDef | ClassDef, env: GlobalEnv, className: st
       } else {
         // Inside the class
         if (className) {
+          classDefinition.get(className).push(def)
+          /*
           const classPointer = envLookup(env, className);
           const location = getVarLocationInBody(def.var, className, env);
           varDefStmts.push(`(i32.const ${classPointer + location}) ;; ${def.var.name}`);
           varDefStmts.push("(i32.const " + reprLiteral(def.lit, env) + ")");
           varDefStmts.push("(i32.store)");
+          */
+          
         }
         else {
           varDefStmts.push(`(local $${def.var.name} i32)`);
@@ -175,16 +180,14 @@ export function codeGenDef(def: VarDef | ClassDef, env: GlobalEnv, className: st
       }
       return varDefStmts;
     case "classDef":
-      var classVar: TypedVar[] = []
-
+      classDefinition.set(def.name, []);
       // Populate class Variable
       def.classBody.forEach(bd => {
         switch (bd.tag) {
           case "varDef":
-            classVar.push(bd.var);
+            codeGenDef(bd, env, def.name)
         }
       })
-      classDefinition.set(def.name, classVar);
 
       def.classBody.forEach(bd => {
         codeGenClassBody(bd, env, def.name);
@@ -313,7 +316,7 @@ export function codeGenExpr(expr: Expr, env: GlobalEnv, className: string): Arra
       // There is no case where liter is object (when class clone(object)) might be the only one
       break;
     case "construct":
-      envLookup(env, expr.name);
+
   }
 }
 
@@ -354,10 +357,24 @@ export function codeGenStmt(stmt: Stmt, env: GlobalEnv, className: string): Arra
     case "pass":
       return [""]
     case "assign":
+      var assignStmts:string[] = [];
+      const t = tcExpression(stmt.expr, env.types, className);
+      console.log(t);
+     if(stmt.isGlobal){ //this is a global variable
+        if(t.tag === "class"){
+          assignStmts.push(`(i32.const ${envLookup(env, stmt.name)}) ;; ${stmt.name}`);
+        }
+        assignStmts.push(`(i32.const ${envLookup(env, stmt.name)}) ;; ${stmt.name}`);
+        assignStmts = assignStmts.concat(codeGenExpr(stmt.expr, env, className));
+        assignStmts.push("(i32.store)");
+      } else {
 
+        //assignStmts = assignStmts.concat(codeGenExpr(stmt.expr, env));
+        assignStmts.push(`(local.set $${stmt.name})`)
+      }
+      return assignStmts 
       break;
     case "memberAssign":
-
   }
 }
 
@@ -396,7 +413,6 @@ export function lastPrint(pgm: Program, oldEnv: GlobalEnv): string {
 
 
 export function compile(source: string, env: GlobalEnv): CompileResult {
-  const t = tcProgram(source, env);
   var ast = program
   var scratchEnv = cloneEnv(env);
   const last_instr = lastPrint(ast, scratchEnv)

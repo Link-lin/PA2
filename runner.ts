@@ -39,6 +39,7 @@ export async function run(source : string, config: any) : Promise<[any, compiler
     returnExpr = "(local.get $$last)"
   }
   */
+  const type = await tcProgram(source, config.env);
   const compiled = compiler.compile(source, config.env);
   const importObject = config.importObject;
   if(!importObject.js) {
@@ -62,7 +63,6 @@ export async function run(source : string, config: any) : Promise<[any, compiler
   //if(result === TRUE){ result ="True" } 
   //else if(result === NONE){ result = "None" }
   //else if(result === FALSE){ result = "false" }
-  const type = await tcProgram(source, compiled.newEnv);
   result = PyValue(type, result);
 
   return [result, compiled.newEnv];

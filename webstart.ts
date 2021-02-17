@@ -1,6 +1,7 @@
 import {BasicREPL} from './repl';
 import { Type } from './ast';
 import { BOOL, CLASS, NONE, NUM } from './utils';
+import { idText } from 'typescript';
 
 
 function webStart() {
@@ -21,6 +22,7 @@ function webStart() {
 
     function print(typ: Type, arg: any): any {
       console.log("Logging from WASM: ", arg);
+      if(typ.tag === "none") return arg;
       const elt = document.createElement("pre");
       document.getElementById("output").appendChild(elt);
       elt.innerText = stringify(typ, arg);

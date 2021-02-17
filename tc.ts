@@ -174,6 +174,11 @@ export function tcStatements(stmt: Stmt, env: Map<string, Type>, expectReturn: T
     }
     switch (stmt.tag) {
         case "assign":
+            if(className){
+                stmt.isGlobal = false;
+            }
+            else stmt.isGlobal = true;
+
             var exprType = tcExpression(stmt.expr, env, className);
             // console.log(exprType);
             var leftType = env.get(stmt.name);
@@ -364,6 +369,8 @@ export async function tcProgram(source: string, oldEnv: GlobalEnv): Promise<Type
 
         switch (def.tag) {
             case "varDef":
+                //console.log(def.var.name)
+                //console.log(env)
                 if (env.has(def.var.name)) {
                     throw new Error("Duplicate declaration of variable in same scope:" + def.var.name);
                 }

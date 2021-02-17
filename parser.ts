@@ -19,6 +19,8 @@ export function traverseLiteral(c: TreeCursor, s: string): Value {
       }
     case "None":
       return { tag: "none" }
+    default:
+      return null
   }
 }
 
@@ -62,13 +64,13 @@ export function traverseUniop(c: TreeCursor, s: string): UniOp {
 }
 
 // Checks if an "assign statement" is a variable declaration or an assignment
-export function isVarDecl(c: TreeCursor): boolean {
+export function isVarDecl(c: TreeCursor, s:string): boolean {
   // assumes already at "assign statement"
   c.firstChild()   // go to variable name
   c.nextSibling()  // go to next node
   let name = c.type.name
-  c.parent()  // escape back to "assign statement"
-  return (name == "TypeDef")
+  c.parent();
+  return name === "TypeDef"
 }
 
 export function traverseTypes(c: TreeCursor, s: string): Type {
@@ -140,7 +142,7 @@ export function traverseMethodBody(c: TreeCursor, s: string): MethodBody {
   c.firstChild()  // go into the body
   c.nextSibling()  // to the first decl or statement
   do {
-    if (isVarDecl(c)) {
+    if (isVarDecl(c,s)) {
       localDecls.push(traverseVarDef(c, s))
     } else {
       stmtList.push(traverseStmt(c, s))
@@ -201,7 +203,7 @@ export function traverseClassBody(c: TreeCursor, s: string): Array<VarDef | Meth
   var classbodyDefs: Array<VarDef | MethodDef> = []
 
   do {
-    if (isVarDecl(c)) {
+    if (isVarDecl(c,s)) {
       // console.log(s.substring(c.from, c.to));
       let vardef = traverseVarDef(c, s);
       classbodyDefs.push(vardef);
@@ -466,7 +468,7 @@ export function traverseProgram(c: TreeCursor, s: string): Program {
       do {
         if (c.type.name === "ClassDefinition") {
           decls.push(traverseClassDef(c, s));
-        } else if (isVarDecl(c)) {
+        } else if (isVarDecl(c, s)) {
           decls.push(traverseVarDef(c, s));
         } else {
           stmts.push(traverseStmt(c, s));
