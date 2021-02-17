@@ -33,12 +33,7 @@ export async function run(source : string, config: any) : Promise<[any, compiler
   var returnExpr = "";
   
   const stmts = parsed.stmts;
-  /*
-  if(stmts[stmts.length - 1].tag === "expr") {
-    returnType = "(result i64)";
-    returnExpr = "(local.get $$last)"
-  }
-  */
+ 
   const type = await tcProgram(source, config.env);
   const compiled = compiler.compile(source, config.env);
   const importObject = config.importObject;
@@ -59,10 +54,6 @@ export async function run(source : string, config: any) : Promise<[any, compiler
   var wasmModule = await WebAssembly.instantiate(asBinary.buffer, importObject);
   var result = (wasmModule.instance.exports.exported_func as any)();
 
-  // Handle Boolean value and None value
-  //if(result === TRUE){ result ="True" } 
-  //else if(result === NONE){ result = "None" }
-  //else if(result === FALSE){ result = "false" }
   result = PyValue(type, result);
 
   return [result, compiled.newEnv];

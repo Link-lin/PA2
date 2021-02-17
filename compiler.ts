@@ -113,7 +113,7 @@ function calculateClassVaiableSize(type: Type, classSize: Map<string, number>) {
   }
 }
 
-function getVarLocationInBody(typedVar: TypedVar, className: string, env: GlobalEnv): number{
+function getVarLocationInBody(typedVar: TypedVar, className: string, env: GlobalEnv): number {
   const vars: VarDef[] = classDefinition.get(className);
   var index = 0
   vars.forEach(v => {
@@ -128,8 +128,8 @@ function getVarLocationInBody(typedVar: TypedVar, className: string, env: Global
 }
 
 function envLookup(env: GlobalEnv, name: string) {
-  if(name)
-  if (!env.globals.has(name)) { console.log("Could not find " + name + " in ", env); throw new Error("Could not find name " + name); }
+  if (name)
+    if (!env.globals.has(name)) { console.log("Could not find " + name + " in ", env); throw new Error("Could not find name " + name); }
   return (env.globals.get(name) * 4); // 4-byte values
 }
 
@@ -170,7 +170,7 @@ export function codeGenDef(def: VarDef | ClassDef, env: GlobalEnv, className: st
           varDefStmts.push("(i32.const " + reprLiteral(def.lit, env) + ")");
           varDefStmts.push("(i32.store)");
           */
-          
+
         }
         else {
           varDefStmts.push(`(local $${def.var.name} i32)`);
@@ -357,12 +357,12 @@ export function codeGenStmt(stmt: Stmt, env: GlobalEnv, className: string): Arra
     case "pass":
       return [""]
     case "assign":
-      var assignStmts:string[] = [];
+      var assignStmts: string[] = [];
       const t = tcExpression(stmt.expr, env.types, className);
       console.log(t);
-     if(stmt.isGlobal){ //this is a global variable
-        if(t.tag === "class"){
-          assignStmts.push(`(i32.const ${envLookup(env, stmt.name)}) ;; ${stmt.name}`);
+      if (stmt.isGlobal) { //this is a global variable
+        if (t.tag === "class") {
+          
         }
         assignStmts.push(`(i32.const ${envLookup(env, stmt.name)}) ;; ${stmt.name}`);
         assignStmts = assignStmts.concat(codeGenExpr(stmt.expr, env, className));
@@ -372,7 +372,7 @@ export function codeGenStmt(stmt: Stmt, env: GlobalEnv, className: string): Arra
         //assignStmts = assignStmts.concat(codeGenExpr(stmt.expr, env));
         assignStmts.push(`(local.set $${stmt.name})`)
       }
-      return assignStmts 
+      return assignStmts
       break;
     case "memberAssign":
   }

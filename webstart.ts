@@ -1,7 +1,6 @@
 import {BasicREPL} from './repl';
 import { Type } from './ast';
 import { BOOL, CLASS, NONE, NUM } from './utils';
-import { idText } from 'typescript';
 
 
 function webStart() {
